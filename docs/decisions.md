@@ -53,3 +53,25 @@ Verified work is committed locally to `main`. The repository has no remote and
 is not pushed until the project owner creates the online repository and supplies
 its URL. Generated artifacts, model caches, checkpoints, credentials, and local
 environment files remain untracked.
+
+## D009 — Version pinning anchored to the OmTrackVLA runtime
+
+Dependency versions are taken from the measured `omtrackvla-dev` container
+rather than chosen independently, so that a ROS-side numerical difference can be
+attributed to the port and not to a silent dependency upgrade. `torch==2.8.0+cu128`
+and `torchvision==0.23.0+cu128` match exactly; CUDA 12.8 is also the minimum
+build that ships `sm_120` kernels for the target Blackwell GPU.
+
+Two dependencies deviate because Python 3.12 or ROS 2 Jazzy forces it: numpy
+tracks the distro `python3-numpy` 1.26.4 that Jazzy's binary extensions link
+against, and pip OpenCV is not installed at all because the inference path
+imports no `cv2` and `ros-jazzy-cv-bridge` owns image conversion. Both
+deviations are recorded in `docs/environment.md`.
+
+## D010 — Inference stack installed into the system interpreter
+
+Ubuntu 24.04 marks the system interpreter as externally managed (PEP 668).
+`rclpy` lives there, so the inference stack is installed beside it with
+`PIP_BREAK_SYSTEM_PACKAGES=1`. An isolated virtual environment would hide
+`rclpy` from torch or torch from `rclpy`, which defeats the single-container
+design in D005.

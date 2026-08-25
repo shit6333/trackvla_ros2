@@ -1,0 +1,3 @@
+[submodule "third_party/OmTrackVLA"]
+	path = third_party/OmTrackVLA
+	url = https://github.com/om-ai-lab/OmTrackVLA.git

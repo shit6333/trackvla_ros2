@@ -38,22 +38,84 @@ An interface package is a build-time artifact, not a running service, so it does
 not justify a separate container. Keeping model inference in the inference node
 also avoids an extra RGB serialization and IPC boundary.
 
-## Planned image construction
+## Reference environment
 
-The Dockerfile will use a pinned NVIDIA CUDA/cuDNN development image for Ubuntu
-24.04, then install:
+Version selection is anchored to the OmTrackVLA evaluation container
+(`omtrackvla-dev`), whose runtime produced the corrected EVT-Bench results. Its
+installed modules were measured on 2026-08-25:
 
-1. ROS 2 Jazzy apt repository and `ros-jazzy-desktop`;
-2. `ros-dev-tools`, rosdep, and colcon;
-3. `cv_bridge` and image transport;
-4. Nav2 Velocity Smoother and Collision Monitor packages;
-5. a CUDA-enabled PyTorch build compatible with the selected base image;
-6. pinned inference-only OmTrackVLA dependencies;
-7. the colcon workspace dependencies.
+| Module | OmTrackVLA runtime | This image | Note |
+| --- | --- | --- | --- |
+| Python | 3.9.19 (conda) | 3.12 (system) | ROS 2 Jazzy interpreter |
+| torch | 2.8.0+cu128 | 2.8.0+cu128 | identical |
+| torchvision | 0.23.0+cu128 | 0.23.0+cu128 | identical |
+| CUDA / cuDNN | 12.8 / 9.10.2 | 12.8 / 9.10.2 | identical base toolchain |
+| transformers | 4.57.6 | 4.57.6 | checkpoint declares 4.57.3 |
+| huggingface_hub | 0.36.2 | 0.36.2 | identical |
+| accelerate | 1.10.1 | 1.10.1 | identical |
+| safetensors | 0.7.0 | 0.7.0 | identical |
+| einops | 0.8.2 | 0.8.2 | identical |
+| timm | 1.0.28 | 1.0.28 | identical |
+| pillow | 10.3.0 | 10.3.0 | identical |
+| scipy | 1.13.1 | 1.11.4 | deviation, see below |
+| numpy | 1.23.5 | 1.26.4 | deviation, see below |
+| opencv-python-headless | 4.8.1.78 | not installed | deviation, see below |
+| habitat-sim | 0.3.1 | not installed | inference does not use it |
 
-The exact CUDA base tag and PyTorch wheel versions will be selected and recorded
-together during the environment-compatibility spike. Floating `latest` tags and
-unversioned core ML dependencies are not allowed.
+### Deviation: numpy
+
+OmTrackVLA pins `numpy==1.23.5` for habitat-sim. That version has no CPython
+3.12 wheel, and ROS 2 Jazzy's binary Python extensions link against the distro
+`python3-numpy`, which is 1.26.4 on Ubuntu 24.04. Installing a second numpy
+would risk two ABIs in one interpreter.
+
+The inference path (`model.py`, `cache_gridpool.py`, `open_trackvla_hf/`) uses
+no numpy alias removed in 1.24, so this image tracks the distro version.
+
+### Deviation: scipy
+
+OmTrackVLA pins `scipy==1.13.1`, but `ros-jazzy-desktop` pulls in
+`python3-scipy` 1.11.4 and pip cannot uninstall a dpkg-installed package (it
+carries no `RECORD` file). The inference path imports no scipy, so the distro
+version is used, as with numpy.
+
+### Deviation: OpenCV
+
+OmTrackVLA pins `opencv-python-headless==4.8.1.78`, which also has no CPython
+3.12 wheel. The inference path imports no `cv2` at all, and ROS image
+conversion is handled by `ros-jazzy-cv-bridge` from apt. Installing a pip
+OpenCV alongside it would only introduce an ABI conflict, so none is installed.
+
+## Image construction
+
+Base image:
+
+```text
+nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+```
+
+This is the same CUDA and cuDNN toolchain as the OmTrackVLA container, rebased
+onto Noble. CUDA 12.8 is not optional: the target GPU is an RTX PRO 6000
+Blackwell (compute capability `sm_120`), and `torch==2.8.0+cu128` is the pinned
+build whose kernel list contains `sm_120`.
+
+Build stages:
+
+1. locale, base tooling;
+2. ROS 2 Jazzy apt repository via `ros2-apt-source` **pinned to 1.2.0** — the
+   upstream instructions resolve this through the GitHub "latest release" API,
+   which is a floating reference;
+3. `ros-jazzy-desktop`, `ros-dev-tools`, colcon, rosdep, vcstool;
+4. `ros-jazzy-cv-bridge`, `ros-jazzy-image-transport`, `ros-jazzy-vision-opencv`;
+5. `ros-jazzy-nav2-velocity-smoother`, `ros-jazzy-nav2-collision-monitor`;
+6. `requirements/torch-cu128.txt`;
+7. `requirements/inference.txt`.
+
+Ubuntu 24.04 marks the system interpreter as externally managed (PEP 668).
+`rclpy` lives in that interpreter, so the inference stack is installed beside it
+with `PIP_BREAK_SYSTEM_PACKAGES=1` rather than in an isolated virtual
+environment. A venv would either hide `rclpy` from torch or hide torch from
+`rclpy`.
 
 The container must fail clearly when CUDA is unavailable:
 
@@ -61,7 +123,28 @@ The container must fail clearly when CUDA is unavailable:
 torch.cuda.is_available() must be true
 ```
 
-It must not silently fall back to CPU.
+It must not silently fall back to CPU. `scripts/check_gpu.sh` enforces this and
+additionally asserts that the device's compute capability appears in
+`torch.cuda.get_arch_list()`.
+
+## Phase 0 gate result
+
+The compatibility gate passed on 2026-08-25, 8/8 stages
+(`scripts/phase0_check.py`, image `trackvla-ros2:jazzy-cu128`):
+
+| Stage | Result |
+| --- | --- |
+| `rclpy` and torch in one interpreter | Python 3.12.3, node creation succeeds |
+| CUDA device visible | RTX PRO 6000 Blackwell, `sm_120` present in the arch list |
+| Upstream inference modules import | no `habitat` module pulled in |
+| Vision encoders | DINOv3 + SigLIP, 24x24 grid, coarse `(4, 1536)` / fine `(64, 1536)` |
+| Checkpoint load | `OmTrackVLA-0.6B`, 609.2M parameters |
+| Forward pass | finite `(1, 8, 3)`, explicit `dt = 0.1 s` |
+| Reset isolation | a second frame changes the output; clearing history reproduces the first prediction bit-for-bit |
+
+The Python 3.12 compatibility gate therefore **passed**, so the single-container
+design in D005 stands and the two-container model-server fallback below is not
+activated. Resolved versions are recorded in `requirements/inference-lock.txt`.
 
 ## OmTrackVLA compatibility boundary
 

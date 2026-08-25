@@ -1,0 +1,1 @@
+# Prevents colcon from treating the upstream Habitat tree as workspace packages.

@@ -1,0 +1,27 @@
+# Resolved dependency versions, measured inside trackvla-ros2:jazzy-cu128
+# during the Phase 0 gate run. Informational: the build inputs are
+# requirements/torch-cu128.txt and requirements/inference.txt.
+#
+# python 3.12.3
+# cuda   12.8   cudnn 91002
+# device NVIDIA RTX PRO 6000 Blackwell Workstation Edition
+# arch   sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120
+#
+# 'apt' marks packages owned by the ROS 2 Jazzy / Ubuntu tree; pip must
+# not be allowed to replace them.
+
+torch==2.8.0+cu128                # pip
+torchvision==0.23.0+cu128         # pip
+transformers==4.57.6              # pip
+huggingface_hub==0.36.2           # pip
+safetensors==0.7.0                # pip
+pillow==10.3.0                    # pip
+accelerate==1.10.1                # pip
+einops==0.8.2                     # pip
+timm==1.0.28                      # pip
+tqdm==4.67.1                      # pip
+numpy==1.26.4                     # apt
+scipy==1.11.4                     # apt
+tokenizers==0.22.2                # pip
+regex==2026.7.19                  # pip
+requests==2.34.2                  # pip

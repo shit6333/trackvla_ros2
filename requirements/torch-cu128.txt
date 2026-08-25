@@ -1,0 +1,12 @@
+# PyTorch pinned to the versions validated in the OmTrackVLA runtime container
+# (omtrackvla-dev, measured 2026-08-25). CUDA 12.8 is the minimum that ships
+# sm_120 kernels, which the RTX PRO 6000 Blackwell requires.
+#
+# Verified arch list for this build:
+#   sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120
+#
+# torchaudio is intentionally omitted; the inference path does not use it.
+--index-url https://download.pytorch.org/whl/cu128
+
+torch==2.8.0+cu128
+torchvision==0.23.0+cu128

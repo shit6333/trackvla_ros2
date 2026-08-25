@@ -1,0 +1,40 @@
+services:
+  vla_tracking:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        USER_ID: "${USER_ID}"
+        GROUP_ID: "${GROUP_ID}"
+        USER_NAME: developer
+
+    image: trackvla-ros2:jazzy-cu128
+    container_name: trackvla-ros2-dev
+
+    working_dir: /workspace/trackvla_ros2
+    stdin_open: true
+    tty: true
+
+    # Host networking keeps DDS discovery simple during development.
+    network_mode: host
+    ipc: host
+    shm_size: "16gb"
+    gpus: all
+
+    volumes:
+      - .:/workspace/trackvla_ros2
+      # Model weights and Hugging Face snapshots. Shared with the OmTrackVLA
+      # evaluation container so the checkpoint is not downloaded twice.
+      - ${MODEL_CACHE}:/workspace/cache
+
+    environment:
+      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID}"
+      HF_HOME: /workspace/cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /workspace/cache/huggingface/hub
+      TORCH_HOME: /workspace/cache/torch
+      # Consumed by docker/entrypoint.sh to put the pinned upstream checkout on
+      # PYTHONPATH.
+      OMTRACKVLA_SRC: /workspace/trackvla_ros2/third_party/OmTrackVLA
+      HF_MODEL_DIR: "${HF_MODEL_DIR}"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics

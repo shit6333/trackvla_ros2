@@ -1,0 +1,37 @@
+# Inference-only OmTrackVLA dependencies.
+#
+# Versions mirror the validated OmTrackVLA runtime container (omtrackvla-dev,
+# measured 2026-08-25) except where Python 3.12 or ROS 2 Jazzy forces a change.
+# See docs/environment.md for the rationale behind each deviation.
+
+# --- required by the inference path -------------------------------------
+# model.py            -> transformers (AutoTokenizer/AutoModel, Qwen3-0.6B)
+# cache_gridpool.py   -> transformers (DINOv3, SiglipVisionModel), PIL
+# open_trackvla_hf/   -> transformers (PreTrainedModel), safetensors
+transformers==4.57.6
+huggingface_hub==0.36.2
+safetensors==0.7.0
+pillow==10.3.0
+
+# --- parity with the validated runtime -----------------------------------
+accelerate==1.10.1
+einops==0.8.2
+timm==1.0.28
+tqdm==4.67.1
+
+# --- deliberately NOT pinned to the OmTrackVLA versions ------------------
+# numpy: OmTrackVLA pins 1.23.5 for habitat-sim, which has no cp312 wheel and
+#        would collide with the python3-numpy that ROS 2 Jazzy links against.
+#        Jazzy on Ubuntu 24.04 ships 1.26.4; the inference path uses no
+#        removed numpy aliases, so we track the distro version instead.
+numpy==1.26.4
+#
+# scipy: OmTrackVLA pins 1.13.1, but ROS 2 Jazzy's apt tree already owns
+#        python3-scipy 1.11.4, which pip cannot uninstall (dpkg-installed
+#        packages carry no RECORD file). The inference path imports no scipy,
+#        so the distro version is used, as with numpy.
+#
+# opencv-python-headless: OmTrackVLA pins 4.8.1.78 (no cp312 wheel). The
+#        inference path imports no cv2 at all, and ROS image conversion is
+#        handled by the apt package ros-jazzy-cv-bridge, so installing a pip
+#        OpenCV here would only risk an ABI conflict with cv_bridge.
