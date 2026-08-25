@@ -1,0 +1,23 @@
+# Start a text-conditioned tracking task. Accepting a new goal, or cancelling
+# the active one, clears the backend's temporal state and invalidates any
+# previously published trajectory.
+
+# --- goal ---------------------------------------------------------------
+# Natural-language description of the target to follow, for example
+# "follow the person in the red shirt".
+string instruction
+---
+# --- result -------------------------------------------------------------
+# State of the task at the moment it finished.
+VlaStatus final_status
+
+# Total predictions published during this task.
+uint32 predictions_published
+
+# Human-readable reason the task ended.
+string message
+---
+# --- feedback -----------------------------------------------------------
+# Republished so that an action client can follow the task without also
+# subscribing to /vla/status.
+VlaStatus status

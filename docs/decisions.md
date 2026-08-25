@@ -75,3 +75,17 @@ Ubuntu 24.04 marks the system interpreter as externally managed (PEP 668).
 `PIP_BREAK_SYSTEM_PACKAGES=1`. An isolated virtual environment would hide
 `rclpy` from torch or torch from `rclpy`, which defeats the single-container
 design in D005.
+
+## D011 — Project-owned `Waypoint2D` instead of `geometry_msgs/Pose2D`
+
+The trajectory waypoint type is defined in `vla_tracking_interfaces` as
+`float64 x, y, theta`. `geometry_msgs/Pose2D` has identical fields but ROS has
+marked it deprecated since Foxy and states it may be removed in any following
+release; building the project's foundational interface on it would put both the
+message and every recorded bag at risk. `geometry_msgs/Pose` avoids that but
+adds a yaw/quaternion conversion on every publish and every execution step, and
+a permanently zero `z`, for a model that only predicts planar poses.
+
+Neither alternative provides native RViz rendering: RViz cannot display a
+custom `VlaTrajectory` whatever it contains, so visualization requires a
+separate `nav_msgs/Path` debug topic under all three options.

@@ -6,17 +6,23 @@ so that compatible tracking or approach models can be substituted later.
 
 ## Current status
 
-Phase 0 (environment compatibility) is complete. The CUDA + ROS 2 Jazzy image
-builds, and the OmTrackVLA planner loads and runs a forward pass inside it under
-system Python 3.12 alongside `rclpy`. No ROS packages exist yet; Phase 1 creates
-them.
+Phases 0 and 1 are complete. The CUDA + ROS 2 Jazzy image builds, the
+OmTrackVLA planner loads and runs a forward pass inside it under system
+Python 3.12 alongside `rclpy`, and the three ROS packages build and pass their
+tests. The runtime nodes themselves do not exist yet; they arrive in Phases 3
+and 4.
 
 ```bash
 cp .env.example .env      # then set MODEL_CACHE
 git submodule update --init --recursive
 docker compose build
+
+# Phase 0 gate
 docker compose run --rm vla_tracking ./scripts/check_gpu.sh
 docker compose run --rm vla_tracking python3 scripts/phase0_check.py
+
+# Phase 1 workspace
+docker compose run --rm vla_tracking ./scripts/build_workspace.sh
 ```
 
 ## Agreed first version

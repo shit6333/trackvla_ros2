@@ -99,13 +99,24 @@ future supervision and visualization rather than queued for mandatory execution.
 The ROS representation must make previously implicit values explicit:
 
 ```text
-std_msgs/Header header       # stamp and prediction frame
+std_msgs/Header header       # observation stamp and prediction frame
 string backend_name
-geometry_msgs/Pose2D[] waypoints
+Waypoint2D[] waypoints       # project-owned; float64 x, y, theta
 float32 dt                   # seconds between trajectory poses
 bool valid
 string status
 ```
+
+`Waypoint2D` is defined in `vla_tracking_interfaces` rather than reused from
+`geometry_msgs`. `geometry_msgs/Pose2D` carries the same three fields but ROS
+has marked it deprecated since Foxy and may remove it, which would invalidate
+both the interface and every recorded bag. `geometry_msgs/Pose` would instead
+force a yaw/quaternion conversion on every publish and every execution step for
+a model that only predicts planar poses, and would stop the message from
+expressing that the trajectory is planar. Neither alternative buys native RViz
+rendering, since RViz cannot display a custom message regardless of its
+contents; visualization needs a separate `nav_msgs/Path` debug topic either
+way. See decision D011.
 
 Initial conventions, to be confirmed with checkpoint-level tests:
 
