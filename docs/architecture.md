@@ -162,24 +162,39 @@ and its planner action conversion.
 OmTrackVLA classes:
 
 ```python
-class VLABackend:
-    def configure(self, config): ...
-    def reset(self, task): ...
-    def infer(self, observation): ...
-    def shutdown(self): ...
+class VLABackend(Protocol):
+    @property
+    def name(self) -> str: ...
+    def configure(self, config: Mapping[str, Any]) -> None: ...
+    def reset(self, instruction: str) -> None: ...
+    def infer(self, observation: Observation) -> Prediction: ...
+    def shutdown(self) -> None: ...
 ```
 
-The normalized backend result contains:
+The normalized types are:
 
 ```text
-waypoints: [N, 3]
-dt: seconds
-frame_id: base_link
-stamp: observation timestamp
-valid: boolean
-status: string
-optional confidence and debug image
+Observation                 Prediction
+  rgb: HxWx3 uint8            waypoints: [N, 3] metres and radians
+  stamp_ns: int               dt: seconds
+  instruction: str            frame_id: str
+                              stamp_ns: int, copied from the observation
+                              valid: bool
+                              warming_up: bool
+                              status: str
 ```
+
+Timestamps are integer nanoseconds rather than ROS message types so that a
+backend and its conformance tests can run without a sourced overlay.
+
+The backend owns whatever temporal state its model needs, and `reset()`
+discards it. The node keeps only the most recent frame. See D012.
+
+Backends are discovered through the `vla_tracking.backends` entry point group
+rather than imported by name, which is what keeps `vla_tracking` free of any
+import dependency on an adapter. A shared conformance suite in
+`vla_tracking.backend_conformance` is run against every backend, so "the
+backends satisfy one contract" is verified rather than asserted.
 
 The first adapter is `OmTrackVLABackend`. Future fine-tuned tracking or approach
 models can ship sibling adapter packages while keeping the same action, topics,

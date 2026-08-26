@@ -92,7 +92,8 @@ Deliverables:
 
 - `TrackTarget` action server;
 - sensor-data QoS image subscription;
-- bounded temporal buffer owned by the node, not module globals;
+- latest-frame handling in the node; the temporal history itself belongs
+  to the backend (see D012);
 - inference worker/timer separated from image callbacks;
 - prevention of overlapping inference jobs;
 - trajectory, status, and optional debug-image publishers;

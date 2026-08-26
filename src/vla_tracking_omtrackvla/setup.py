@@ -24,5 +24,9 @@ setup(
         # The adapter ships no executable of its own; it is loaded through
         # vla_tracking's backend loader.
         'console_scripts': [],
+        'vla_tracking.backends': [
+            'omtrackvla = '
+            'vla_tracking_omtrackvla.omtrackvla_backend:OmTrackVLABackend',
+        ],
     },
 )

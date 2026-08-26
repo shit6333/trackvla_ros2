@@ -89,3 +89,29 @@ a permanently zero `z`, for a model that only predicts planar poses.
 Neither alternative provides native RViz rendering: RViz cannot display a
 custom `VlaTrajectory` whatever it contains, so visualization requires a
 separate `nav_msgs/Path` debug topic under all three options.
+
+## D012 — The backend owns the temporal history
+
+`vla_inference_node` keeps only the most recent frame; the model's temporal
+state lives in the backend and is discarded by `reset()`.
+
+OmTrackVLA's history is not imagery. Each frame is encoded once by the frozen
+DINOv3 and SigLIP encoders and pooled to a four-token coarse summary; the
+history is 31 of those summaries, about 762 KB in total. Having the node hold
+31 raw frames and pass a window on every step would force the encoders to run
+31 times per step instead of once.
+
+This supersedes the original Phase 3 wording, which placed a bounded temporal
+buffer in the node.
+
+## D013 — Warm-up predictions are published but never executed
+
+Until the history is full the backend left-pads it with its earliest frame,
+reproducing the upstream evaluator. Such a prediction is returned with
+`warming_up` true and `valid` false: it reaches `/vla/trajectory` and RViz for
+visibility, and the executor refuses it, so the base is never driven from a
+padded history. `Prediction` rejects the contradictory combination of
+`warming_up` and `valid` at construction.
+
+At the measured 25.6 Hz the 31-frame history fills in roughly 1.2 s at full
+rate, or 3.1 s if frames are sampled at the checkpoint's 10 Hz cadence.

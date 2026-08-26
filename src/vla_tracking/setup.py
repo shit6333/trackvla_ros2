@@ -28,5 +28,10 @@ setup(
         # against missing modules would install launchable executables that
         # fail at import time.
         'console_scripts': [],
+        # Backends advertise themselves here so that this package never
+        # imports a model adapter. See vla_tracking/backend_loader.py.
+        'vla_tracking.backends': [
+            'fake = vla_tracking.fake_backend:FakeBackend',
+        ],
     },
 )

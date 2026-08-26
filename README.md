@@ -6,11 +6,11 @@ so that compatible tracking or approach models can be substituted later.
 
 ## Current status
 
-Phases 0 and 1 are complete. The CUDA + ROS 2 Jazzy image builds, the
-OmTrackVLA planner loads and runs a forward pass inside it under system
-Python 3.12 alongside `rclpy`, and the three ROS packages build and pass their
-tests. The runtime nodes themselves do not exist yet; they arrive in Phases 3
-and 4.
+Phases 0 to 2 are complete. The CUDA + ROS 2 Jazzy image builds, the three ROS
+packages build and pass their tests, and the OmTrackVLA planner is reachable
+through a model-independent backend contract. Steady-state inference measures
+39 ms, about 25.6 Hz. The runtime nodes themselves do not exist yet; they
+arrive in Phases 3 and 4.
 
 ```bash
 cp .env.example .env      # then set MODEL_CACHE
@@ -21,9 +21,12 @@ docker compose build
 docker compose run --rm vla_tracking ./scripts/check_gpu.sh
 docker compose run --rm vla_tracking python3 scripts/phase0_check.py
 
-# Phase 1 workspace
+# Phases 1 and 2: workspace and backends
 docker compose run --rm vla_tracking ./scripts/build_workspace.sh
 ```
+
+The OmTrackVLA adapter tests need CUDA and a checkpoint at `HF_MODEL_DIR`;
+they skip cleanly when either is absent.
 
 ## Agreed first version
 
