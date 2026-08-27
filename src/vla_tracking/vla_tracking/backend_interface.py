@@ -138,3 +138,14 @@ class VLABackend(Protocol):
     def shutdown(self) -> None:
         """Release resources. Must tolerate being called more than once."""
         ...
+
+
+# Optional extension, checked with getattr rather than declared on the
+# protocol so that a backend without it still satisfies the contract:
+#
+#     def describe(self) -> Mapping[str, str]:
+#         """Report provenance for the startup health log."""
+#
+# The node logs whatever it returns. It is how CUDA state and checkpoint
+# identity reach the log without the generic runtime importing torch.
+DESCRIBE_ATTRIBUTE = 'describe'

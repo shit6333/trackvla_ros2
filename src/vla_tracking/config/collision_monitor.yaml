@@ -1,0 +1,43 @@
+# Nav2 collision monitor. Disabled by default; enable with
+#   ros2 launch vla_tracking tracking.launch.py enable_collision_monitor:=true
+#
+# IMPORTANT: enabling this requires a real sensor on the configured source
+# topic. The monitor is fail-safe by design, so with no data arriving it holds
+# the base stopped once source_timeout elapses. That is correct behaviour, not
+# a fault, but it means this must not be enabled before a laser scan or a
+# depth-derived point cloud is actually being published.
+#
+# The scan is not a model input. The VLA backend never sees it; this chain only
+# vetoes commands the model has already produced.
+#
+# The launch file supplies cmd_vel_in_topic and cmd_vel_out_topic, so the
+# wiring cannot disagree with the rest of the chain.
+
+collision_monitor:
+  ros__parameters:
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    state_topic: "collision_monitor_state"
+
+    transform_tolerance: 0.2
+    source_timeout: 1.0
+    base_shift_correction: false
+    stop_pub_timeout: 2.0
+
+    polygons: ["StopZone"]
+    StopZone:
+      type: "polygon"
+      # A placeholder footprint-plus-margin box. Replace with the real robot
+      # footprint before any hardware use.
+      points: "[[0.4, 0.3], [0.4, -0.3], [-0.2, -0.3], [-0.2, 0.3]]"
+      action_type: "stop"
+      min_points: 4
+      visualize: true
+      polygon_pub_topic: "collision_monitor_stop_zone"
+      enabled: true
+
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "scan"
+      enabled: true

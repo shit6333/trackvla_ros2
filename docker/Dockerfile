@@ -78,6 +78,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-nav2-velocity-smoother \
     ros-${ROS_DISTRO}-nav2-collision-monitor \
+    ros-${ROS_DISTRO}-nav2-lifecycle-manager \
     && rm -rf /var/lib/apt/lists/*
 
 RUN rosdep init || true

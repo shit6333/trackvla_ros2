@@ -100,6 +100,15 @@ class FakeBackend:
             ),
         )
 
+    def describe(self):
+        """Report provenance for the startup health log."""
+        return {
+            'backend': 'fake',
+            'weights': 'none, output is a function of the input',
+            'history_length': str(self._history_length),
+            'dt': f'{self._dt:.3f} s',
+        }
+
     def shutdown(self) -> None:
         """Drop all state. Safe to call repeatedly."""
         self._history.clear()

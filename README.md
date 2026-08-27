@@ -6,20 +6,38 @@ so that compatible tracking or approach models can be substituted later.
 
 ## Current status
 
-Phases 0 to 4 are complete. The pipeline runs end to end: an instruction
-starts a task, camera frames drive inference, trajectories are published, and
-the executor converts them into `/cmd_vel`. Steady-state OmTrackVLA inference
-measures 39 ms, about 25.6 Hz. Phase 5 adds the launch file and the optional
-Nav2 chain, which are still assembled by hand today.
+Phases 0 to 5 are complete. One launch command brings up the pipeline: an
+instruction starts a task, camera frames drive inference, trajectories are
+published, and the executor converts them into `/cmd_vel`. In-pipeline
+OmTrackVLA inference measures 46.6 ms. Phase 6, integration testing and
+documentation, is what remains.
 
 ```bash
-ros2 run vla_tracking vla_inference_node --ros-args -p backend:=fake
-ros2 run vla_tracking trajectory_executor_node
+ros2 launch vla_tracking tracking.launch.py
+ros2 launch vla_tracking tracking.launch.py backend:=omtrackvla
 
 ros2 action send_goal /vla/track_target \
     vla_tracking_interfaces/action/TrackTarget \
     "{instruction: 'follow the person in the red shirt'}" --feedback
 ```
+
+The Nav2 velocity smoother and collision monitor are installed but disabled;
+with both off the executor publishes `/cmd_vel` directly rather than passing
+through no-op stages.
+
+```bash
+ros2 launch vla_tracking tracking.launch.py enable_velocity_smoother:=true
+ros2 launch vla_tracking tracking.launch.py enable_collision_monitor:=true
+```
+
+Enabling the collision monitor requires a real sensor on its source topic. It
+is fail-safe by design, so with no data arriving it holds the base stopped.
+
+**The default velocity limits are not validated against any robot, and the
+linear limit is too low for this checkpoint.** The model predicts roughly
+0.49 m/s forward against a 0.2 m/s limit, so the clamp is engaged
+continuously and the executor discards the model's speed control. See
+`config/tracking.yaml`.
 
 ```bash
 cp .env.example .env      # then set MODEL_CACHE

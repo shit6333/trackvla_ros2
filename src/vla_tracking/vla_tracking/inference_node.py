@@ -7,6 +7,7 @@ velocity command: converting a trajectory into motion is the trajectory
 executor's job, so that a model failure can never actuate the base directly.
 """
 
+import signal
 import threading
 import time
 from typing import Optional
@@ -151,6 +152,7 @@ class VlaInferenceNode(Node):
             self._backend = load_backend(self._backend_name)
             self._backend.configure(config)
             self._backend_ready = True
+            self._log_backend_health()
         except Exception as exc:
             self._backend = None
             self._backend_ready = False
@@ -161,6 +163,27 @@ class VlaInferenceNode(Node):
                     f'{type(exc).__name__}: {exc}'
                 )
             self.get_logger().error(self._error_message)
+
+    def _log_backend_health(self) -> None:
+        """
+        Report what actually loaded, before the first frame arrives.
+
+        Provenance comes from the backend's optional describe(), so device and
+        checkpoint identity reach the log without this package importing a
+        model library.
+        """
+        describe = getattr(self._backend, 'describe', None)
+        if not callable(describe):
+            return
+        try:
+            details = describe()
+        except Exception as exc:
+            self.get_logger().warn(
+                f'backend describe() raised {type(exc).__name__}: {exc}'
+            )
+            return
+        for key, value in details.items():
+            self.get_logger().info(f'  {key}: {value}')
 
     # -- sensor ------------------------------------------------------------
 
@@ -450,11 +473,20 @@ def main(args: Optional[list] = None) -> None:
     node = VlaInferenceNode()
     executor = MultiThreadedExecutor()
     executor.add_node(node)
+
+    def _on_terminate(signum, frame):
+        """Release the backend before the process exits."""
+        executor.shutdown()
+
+    # SIGTERM terminates a Python process without raising KeyboardInterrupt,
+    # so the teardown in the finally block would otherwise be skipped.
+    previous_sigterm = signal.signal(signal.SIGTERM, _on_terminate)
     try:
         executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

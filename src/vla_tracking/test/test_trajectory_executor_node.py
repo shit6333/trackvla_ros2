@@ -18,7 +18,10 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 
-from vla_tracking.trajectory_executor_node import TrajectoryExecutorNode
+from vla_tracking.trajectory_executor_node import (
+    make_termination_handler,
+    TrajectoryExecutorNode,
+)
 
 from vla_tracking_interfaces.msg import VlaTrajectory, Waypoint2D
 
@@ -308,3 +311,43 @@ def test_stop_commands_zero_immediately(harness):
     harness.node.stop()
     harness.wait_for_commands(len(harness.commands) + 2)
     assert is_zero(harness.commands[-1])
+
+
+class _RecordingExecutor:
+    """Stands in for the ROS executor so no real spin loop is involved."""
+
+    def __init__(self):
+        """Start with no shutdown recorded."""
+        self.shutdown_called = False
+
+    def shutdown(self):
+        """Record that termination asked the executor to stop."""
+        self.shutdown_called = True
+
+
+def test_termination_stops_the_base(harness):
+    """
+    Check that terminating the process commands zero.
+
+    SIGTERM ends a Python process without raising KeyboardInterrupt, so the
+    teardown in main's finally block never runs on that path. Without an
+    explicit handler the base would keep moving at whatever velocity was last
+    commanded, which is the worst failure this node can have.
+    """
+    harness.wait_for_commands(2)
+    harness.publish()
+
+    deadline = time.monotonic() + 2.0
+    while time.monotonic() < deadline:
+        if harness.commands and not is_zero(harness.commands[-1]):
+            break
+        time.sleep(0.01)
+    assert not is_zero(harness.commands[-1]), 'the base was never moving'
+
+    fake_executor = _RecordingExecutor()
+    handler = make_termination_handler(harness.node, fake_executor)
+    handler(15, None)
+
+    assert fake_executor.shutdown_called, 'termination did not stop the spin'
+    assert is_zero(harness.commands[-1]), \
+        'termination left a non-zero command as the last thing published'

@@ -153,3 +153,33 @@ that keeps publishing but is recycling a frozen frame. It defaults to 0.5 s.
 An unsynchronised camera clock makes it reject everything, which halts the
 robot and logs the measured age, so the failure is safe and diagnosable rather
 than silent.
+
+## D017 — Command-chain wiring is computed by one pure function
+
+`vla_tracking.cmd_vel_routing.plan_cmd_vel_chain` decides every topic name in
+the optional Nav2 chain, and the launch file consumes its result rather than
+scattering conditional remappings through a launch description.
+
+The failure this prevents is specific: if two nodes end up publishing the
+final command topic, the base acts on whichever message arrives last and its
+behaviour becomes non-deterministic. Concentrating the decision in a pure
+function makes the invariant testable exhaustively; all four combinations are
+checked in unit tests and were also verified live by counting publishers on
+`/cmd_vel`.
+
+The collision monitor is always last in the chain. It must judge the command
+that will actually be sent, so smoothing has to happen before it, never after.
+
+## D018 — Nodes stop the base on SIGTERM, not only on SIGINT
+
+`rclpy` installs a SIGINT handler, but SIGTERM ends a Python process outright
+without raising `KeyboardInterrupt`, so a `finally` block never runs on that
+path. A supervisor, a container stop, or a plain `kill` would therefore have
+left the base moving at whatever velocity was last commanded.
+
+Both nodes now install a SIGTERM handler. The executor's commands zero before
+exiting, and publishes it more than once with a short gap, because a single
+publish issued during teardown can be lost before the middleware sends it.
+
+This is a best-effort guarantee. `SIGKILL` defeats it, so it does not replace
+either the executor's own `trajectory_timeout` or a watchdog on the base.

@@ -1,0 +1,30 @@
+# Nav2 velocity smoother. Disabled by default; enable with
+#   ros2 launch vla_tracking tracking.launch.py enable_velocity_smoother:=true
+#
+# The launch file supplies the input and output topics, so the wiring cannot
+# disagree with the rest of the chain.
+#
+# These limits have not been validated against a robot. They must not exceed
+# what the base can actually deliver, and they interact with the executor's own
+# hard limits: the smoother can only reduce a command, never raise it.
+
+velocity_smoother:
+  ros__parameters:
+    smoothing_frequency: 20.0
+    scale_velocities: false
+    feedback: "OPEN_LOOP"
+
+    # [x, y, theta]
+    max_velocity: [0.2, 0.2, 0.5]
+    min_velocity: [-0.2, -0.2, -0.5]
+    max_accel: [1.0, 1.0, 2.0]
+    max_decel: [-1.0, -1.0, -2.0]
+
+    # Zero output if no command arrives within this window.
+    velocity_timeout: 1.0
+
+    odom_topic: "odom"
+    odom_duration: 0.1
+
+    # The executor publishes geometry_msgs/Twist.
+    enable_stamped_cmd_vel: false

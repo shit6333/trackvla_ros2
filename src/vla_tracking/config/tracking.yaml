@@ -1,0 +1,80 @@
+# Core parameters for the tracking pipeline.
+#
+# Override individual values on the command line, for example:
+#   ros2 launch vla_tracking tracking.launch.py backend:=omtrackvla
+
+vla_inference_node:
+  ros__parameters:
+    # Entry point name from the vla_tracking.backends group.
+    #   fake       - deterministic, no weights, for bring-up and tests
+    #   omtrackvla - the released 0.6B checkpoint, needs CUDA
+    backend: fake
+
+    image_topic: /camera/image_raw
+    base_frame: base_link
+
+    # The checkpoint was trained on frames 0.1 s apart, and its history
+    # carries explicit time indices, so the sampling cadence is a property the
+    # model learned rather than a free parameter. Measured inference is 46.6 ms
+    # in-pipeline, so a higher rate is achievable but has not been shown to
+    # help.
+    inference_rate: 10.0
+
+    # Frames older than this are skipped. Zero disables the check.
+    max_image_age: 0.5
+
+    status_rate: 5.0
+
+    # Empty falls back to HF_MODEL_DIR and OMTRACKVLA_SRC, which the container
+    # sets. No developer path is baked in.
+    model_dir: ''
+    source_path: ''
+
+    require_cuda: true
+
+    # Zero keeps the backend's own default. For OmTrackVLA that is 31, the
+    # value train.py and make_tracking_data.py were run with. The checkpoint
+    # does not record it, so nothing validates an override.
+    history_length: 0
+
+trajectory_executor_node:
+  ros__parameters:
+    # How many predicted waypoints one prediction may drive. One matches the
+    # released evaluator, which uses tau[0, 1] and then re-infers.
+    waypoints_to_execute: 1
+
+    # Stop if no trajectory has been accepted within this many seconds. Needs
+    # no clock agreement with the camera; this is the guard that stops the base
+    # when the upstream dies.
+    trajectory_timeout: 0.3
+
+    command_rate: 20.0
+
+    # WARNING: these limits are not validated against any robot, and the
+    # linear limit is currently too low for this checkpoint. The model
+    # predicts roughly 0.49 m/s forward, so at 0.2 m/s the clamp is engaged
+    # continuously and the executor discards the model's speed control
+    # entirely: forward speed becomes constant and only heading varies.
+    # Set these from the target robot's real capability before any experiment
+    # whose results depend on speed.
+    max_linear_velocity: 0.2
+    max_lateral_velocity: 0.2
+    max_angular_velocity: 0.5
+
+    base_frame: base_link
+
+    # Reject predictions the backend marked invalid, which includes every
+    # warm-up prediction.
+    require_valid: true
+
+    # Reject a trajectory whose observation is older than this. Catches an
+    # upstream that keeps publishing a frozen frame, which the timeout above
+    # cannot see. Requires the camera clock to agree with this node's; set to
+    # zero if it does not.
+    max_trajectory_age: 0.5
+
+    # preserve - publish linear.y as predicted, matching the holonomic
+    #            simulator agent the checkpoint was evaluated on
+    # drop     - zero it for a base that cannot move sideways, logging how
+    #            much was discarded
+    lateral_policy: preserve

@@ -11,6 +11,7 @@ between two consecutive predicted poses and applied for one `dt`. There is no
 odometry feedback, so the node does not subscribe to /odom (see D003).
 """
 
+import signal
 import threading
 import time
 from typing import List, Optional
@@ -245,10 +246,18 @@ class TrajectoryExecutorNode(Node):
     # -- teardown -----------------------------------------------------------
 
     def stop(self) -> None:
-        """Drop the plan and command zero velocity."""
+        """
+        Drop the plan and command zero velocity.
+
+        The zero is published more than once with a short gap: a single
+        publish issued as the process is tearing down can be lost before the
+        middleware sends it, and this is the message that stops the robot.
+        """
         with self._plan_lock:
             self._plan = None
-        self._command_publisher.publish(Twist())
+        for _ in range(3):
+            self._command_publisher.publish(Twist())
+            time.sleep(0.02)
 
     def destroy_node(self) -> bool:
         """
@@ -265,17 +274,41 @@ class TrajectoryExecutorNode(Node):
         return super().destroy_node()
 
 
+def make_termination_handler(node, executor):
+    """
+    Build the handler that stops the base before the process exits.
+
+    Separated from main so the behaviour can be tested without delivering a
+    real signal: what matters is that termination commands zero, not that
+    Python routes the signal.
+    """
+    def _on_terminate(signum, frame):
+        node.stop()
+        executor.shutdown()
+
+    return _on_terminate
+
+
 def main(args: Optional[list] = None) -> None:
     """Spin the trajectory executor, stopping the base on the way out."""
     rclpy.init(args=args)
     node = TrajectoryExecutorNode()
     executor = MultiThreadedExecutor()
     executor.add_node(node)
+
+    # rclpy installs a SIGINT handler, but SIGTERM terminates a Python process
+    # outright without raising KeyboardInterrupt. Without this handler a
+    # supervisor or a plain kill would leave the base running at whatever
+    # velocity was last commanded.
+    previous_sigterm = signal.signal(
+        signal.SIGTERM, make_termination_handler(node, executor)
+    )
     try:
         executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

@@ -47,6 +47,7 @@ class OmTrackVLABackend:
         self._dt = CHECKPOINT_DT
         self._frame_id = DEFAULT_FRAME_ID
         self._checkpoint_info: Optional[dict] = None
+        self._checkpoint_path = None
         self._last_inference_seconds = 0.0
 
     # -- contract ---------------------------------------------------------
@@ -66,6 +67,7 @@ class OmTrackVLABackend:
         self._device = device
         self._encoder = FrameEncoder(device, config)
         self._checkpoint_info = describe_checkpoint(checkpoint_path)
+        self._checkpoint_path = checkpoint_path
 
         # The history length is a property of the checkpoint but is absent
         # from its config.json, so an override is allowed and warned about
@@ -135,6 +137,26 @@ class OmTrackVLABackend:
                 f'frames' if warming_up else 'ok'
             ),
         )
+
+    def describe(self):
+        """Report device and checkpoint provenance for the startup log."""
+        info = self._checkpoint_info or {}
+        device = self._device
+        if device is not None and device.type == 'cuda':
+            index = device.index or 0
+            device_text = f'{torch.cuda.get_device_name(index)} (cuda:{index})'
+        else:
+            device_text = str(device)
+        return {
+            'backend': 'omtrackvla',
+            'device': device_text,
+            'torch': torch.__version__,
+            'checkpoint': str(self._checkpoint_path),
+            'llm': str(info.get('llm_name', 'unknown')),
+            'n_waypoints': str(info.get('n_waypoints', 'unknown')),
+            'history_length': str(self._history_length),
+            'dt': f'{self._dt:.3f} s',
+        }
 
     def shutdown(self) -> None:
         """Release the model and encoders. Safe to call repeatedly."""
