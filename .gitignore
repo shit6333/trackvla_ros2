@@ -10,3 +10,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .coverage
+
+# Scratch scripts copied into the workspace so the container's bind mount can
+# see them. One escaped into a commit once; this keeps it from recurring.
+/_*

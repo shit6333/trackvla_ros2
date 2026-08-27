@@ -6,11 +6,14 @@ so that compatible tracking or approach models can be substituted later.
 
 ## Current status
 
-Phases 0 to 5 are complete. One launch command brings up the pipeline: an
-instruction starts a task, camera frames drive inference, trajectories are
-published, and the executor converts them into `/cmd_vel`. In-pipeline
-OmTrackVLA inference measures 46.6 ms. Phase 6, integration testing and
-documentation, is what remains.
+All six planned phases are complete. One launch command brings up the
+pipeline: an instruction starts a task, camera frames drive inference,
+trajectories are published, and the executor converts them into `/cmd_vel`.
+In-pipeline OmTrackVLA inference measures 46.6 ms.
+
+What remains is deferred work rather than package work: Gazebo, a real robot
+driver, closed-loop odometry feedback, and the camera and speed alignment
+experiments the measurements below call for.
 
 ```bash
 ros2 launch vla_tracking tracking.launch.py
@@ -72,8 +75,11 @@ they skip cleanly when either is absent.
 - Gazebo and physical-robot integration are deferred until the packages build
   and the topic pipeline is validated.
 
-## Planning documents
+## Documentation
 
+- [Building and running](docs/running.md) — container, launch, tests, rosbag
+- [Interfaces](docs/interfaces.md) — topics, action, parameters
+- [Provenance](docs/provenance.md) — pinned upstream, checkpoint, measurements
 - [System architecture](docs/architecture.md)
 - [Repository and package layout](docs/repository-layout.md)
 - [Container and development environment](docs/environment.md)

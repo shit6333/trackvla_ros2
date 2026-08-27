@@ -27,6 +27,7 @@ from vla_tracking_omtrackvla.model_loader import (
     CHECKPOINT_HISTORY_LENGTH,
     describe_checkpoint,
     load_planner,
+    resolve_history_length,
 )
 from vla_tracking_omtrackvla.preprocessing import FrameEncoder
 
@@ -48,6 +49,7 @@ class OmTrackVLABackend:
         self._frame_id = DEFAULT_FRAME_ID
         self._checkpoint_info: Optional[dict] = None
         self._checkpoint_path = None
+        self._history_source = 'project default'
         self._last_inference_seconds = 0.0
 
     # -- contract ---------------------------------------------------------
@@ -69,12 +71,17 @@ class OmTrackVLABackend:
         self._checkpoint_info = describe_checkpoint(checkpoint_path)
         self._checkpoint_path = checkpoint_path
 
-        # The history length is a property of the checkpoint but is absent
-        # from its config.json, so an override is allowed and warned about
-        # rather than silently accepted.
-        self._history_length = int(
-            config.get('history_length', CHECKPOINT_HISTORY_LENGTH)
-        )
+        # The history length belongs to the weights, so it is taken from the
+        # checkpoint when recorded there. An explicit override still wins, but
+        # describe() reports which source was used so a mismatch is visible.
+        recorded, source = resolve_history_length(checkpoint_path)
+        override = config.get('history_length')
+        if override:
+            self._history_length = int(override)
+            self._history_source = 'configuration override'
+        else:
+            self._history_length = recorded
+            self._history_source = source
         if self._history_length < 1:
             raise ValueError('history_length must be at least 1')
         self._history = deque(maxlen=self._history_length)
@@ -154,7 +161,9 @@ class OmTrackVLABackend:
             'checkpoint': str(self._checkpoint_path),
             'llm': str(info.get('llm_name', 'unknown')),
             'n_waypoints': str(info.get('n_waypoints', 'unknown')),
-            'history_length': str(self._history_length),
+            'history_length': (
+                f'{self._history_length} (from {self._history_source})'
+            ),
             'dt': f'{self._dt:.3f} s',
         }
 

@@ -4,83 +4,51 @@ The repository itself is a colcon workspace. ROS packages live under `src/`, the
 upstream model checkout lives outside `src/`, and container files live at the
 repository root.
 
-## Planned layout
+## Layout
 
 ```text
 trackvla_ros2/
 ├── README.md
-├── LICENSE
 ├── compose.yaml
-├── .env.example
-├── .gitignore
-├── .dockerignore
-├── .gitmodules
+├── .env.example                    # copy to .env, which is never committed
 ├── docker/
 │   ├── Dockerfile
 │   └── entrypoint.sh
 ├── requirements/
-│   ├── inference.txt
-│   └── inference-lock.txt
+│   ├── torch-cu128.txt             # pinned torch, cu128 index
+│   ├── inference.txt               # build input
+│   └── inference-lock.txt          # resolved versions, informational
 ├── docs/
 │   ├── architecture.md
 │   ├── repository-layout.md
 │   ├── environment.md
 │   ├── implementation-plan.md
+│   ├── interfaces.md               # topics, action, parameters
+│   ├── running.md                  # build, run, record
+│   ├── provenance.md               # pinned upstream and model versions
 │   └── decisions.md
+├── scripts/
+│   ├── build_workspace.sh
+│   ├── check_gpu.sh
+│   └── phase0_check.py
 ├── src/
-│   ├── vla_tracking_interfaces/
-│   │   ├── package.xml
-│   │   ├── CMakeLists.txt
-│   │   ├── msg/
-│   │   │   ├── VlaTrajectory.msg
-│   │   │   └── VlaStatus.msg
-│   │   └── action/
-│   │       └── TrackTarget.action
-│   ├── vla_tracking/
-│   │   ├── package.xml
-│   │   ├── setup.py
-│   │   ├── setup.cfg
-│   │   ├── resource/vla_tracking
-│   │   ├── vla_tracking/
-│   │   │   ├── inference_node.py
-│   │   │   ├── trajectory_executor_node.py
-│   │   │   ├── backend_interface.py
-│   │   │   ├── backend_loader.py
-│   │   │   ├── image_buffer.py
-│   │   │   ├── trajectory_conversion.py
-│   │   │   └── trajectory_validation.py
-│   │   ├── launch/tracking.launch.py
-│   │   ├── config/
-│   │   │   ├── tracking.yaml
-│   │   │   ├── velocity_smoother.yaml
-│   │   │   └── collision_monitor.yaml
-│   │   └── test/
-│   └── vla_tracking_omtrackvla/
-│       ├── package.xml
-│       ├── setup.py
-│       ├── setup.cfg
-│       ├── resource/vla_tracking_omtrackvla
-│       ├── vla_tracking_omtrackvla/
-│       │   ├── omtrackvla_backend.py
-│       │   ├── model_loader.py
-│       │   └── preprocessing.py
-│       └── test/
+│   ├── vla_tracking_interfaces/    # ament_cmake: msg and action only
+│   ├── vla_tracking/               # ament_python: nodes, contract, launch
+│   └── vla_tracking_omtrackvla/    # ament_python: the OmTrackVLA adapter
 ├── third_party/
 │   ├── COLCON_IGNORE
 │   └── OmTrackVLA/                 # pinned Git submodule
-├── scripts/
-│   ├── build_workspace.sh
-│   ├── run_tracking.sh
-│   └── check_gpu.sh
-├── test/integration/
 ├── cache/                          # ignored runtime caches
 ├── build/                          # ignored colcon output
 ├── install/                        # ignored colcon output
 └── log/                            # ignored colcon output
 ```
 
-Only planning documents exist initially. The code directories and files above
-are created incrementally by the implementation phases.
+Tests live inside each package's `test/` directory rather than in a top-level
+`test/integration/`, because that is where `colcon test` finds and runs them.
+The fixtures they share are installed as `vla_tracking.testing`, so an adapter
+package can drive the same pipeline against real weights without copying the
+scaffolding.
 
 ## ROS packages
 

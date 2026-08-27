@@ -15,11 +15,12 @@ from typing import Any, Mapping, Optional, Tuple
 
 import torch
 
-#: Number of previous frames the released checkpoint was trained with.
+#: Fallback number of previous frames, used when the checkpoint does not say.
 #:
-#: This is not recorded in the checkpoint's config.json, so nothing validates
-#: it at load time. It is fixed by train.py and make_tracking_data.py, whose
-#: --history default is 31, and reproduced by the upstream evaluator.
+#: The value is absent from config.json but is recorded in checkpoint_meta.json
+#: under config_overrides.history, so resolve_history_length prefers that. This
+#: constant matches the --history default in train.py and
+#: make_tracking_data.py, and the value the upstream evaluator hard-codes.
 CHECKPOINT_HISTORY_LENGTH = 31
 
 #: Seconds between predicted waypoints, as used by the upstream evaluator.
@@ -126,6 +127,31 @@ def load_planner(
     model = OpenTrackVLAForWaypoint.from_pretrained(str(checkpoint_path))
     model = model.to(device).eval()
     return model, device, checkpoint_path
+
+
+def resolve_history_length(checkpoint_path: Path) -> Tuple[int, str]:
+    """
+    Read the training history length from the checkpoint, if it records one.
+
+    The model's coarse history carries explicit time indices, so its length is
+    a property of the weights rather than a free runtime choice. It is missing
+    from config.json but present in checkpoint_meta.json, so prefer that over
+    the constant and report which was used.
+
+    :returns: the length and a short description of where it came from.
+    """
+    meta_path = checkpoint_path / 'checkpoint_meta.json'
+    try:
+        import json
+
+        with open(meta_path, encoding='utf-8') as handle:
+            meta = json.load(handle)
+        recorded = meta.get('config_overrides', {}).get('history')
+        if isinstance(recorded, int) and recorded > 0:
+            return recorded, 'checkpoint_meta.json'
+    except (OSError, ValueError):
+        pass
+    return CHECKPOINT_HISTORY_LENGTH, 'project default'
 
 
 def describe_checkpoint(checkpoint_path: Path) -> Optional[dict]:
