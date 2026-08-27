@@ -91,9 +91,16 @@ class Harness:
         )
 
     def _spin(self):
-        """Spin until the harness is shut down."""
-        while not self._stop.is_set() and self.context.ok():
-            self.executor.spin_once(timeout_sec=0.05)
+        """
+        Spin on the executor's own thread pool.
+
+        A hand-rolled spin_once loop services every callback from one thread,
+        which lets subscription queues drain far behind real time.
+        """
+        try:
+            self.executor.spin()
+        except Exception:
+            pass
 
     def _publish_frames(self):
         """Publish distinct synthetic frames at roughly 100 Hz."""
@@ -128,6 +135,7 @@ class Harness:
         if self._camera_thread.is_alive():
             self._camera_thread.join(timeout=2.0)
         self._stop.set()
+        self.executor.shutdown()
         self._thread.join(timeout=5.0)
         self.node.destroy_node()
         self.client_node.destroy_node()

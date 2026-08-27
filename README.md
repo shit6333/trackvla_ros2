@@ -6,14 +6,16 @@ so that compatible tracking or approach models can be substituted later.
 
 ## Current status
 
-Phases 0 to 3 are complete. `vla_inference_node` runs: it accepts a
-`TrackTarget` goal, consumes camera frames, and publishes trajectories and
-status. Steady-state OmTrackVLA inference measures 39 ms, about 25.6 Hz. The
-trajectory executor does not exist yet, so nothing publishes `/cmd_vel`; that
-is Phase 4.
+Phases 0 to 4 are complete. The pipeline runs end to end: an instruction
+starts a task, camera frames drive inference, trajectories are published, and
+the executor converts them into `/cmd_vel`. Steady-state OmTrackVLA inference
+measures 39 ms, about 25.6 Hz. Phase 5 adds the launch file and the optional
+Nav2 chain, which are still assembled by hand today.
 
 ```bash
 ros2 run vla_tracking vla_inference_node --ros-args -p backend:=fake
+ros2 run vla_tracking trajectory_executor_node
+
 ros2 action send_goal /vla/track_target \
     vla_tracking_interfaces/action/TrackTarget \
     "{instruction: 'follow the person in the red shirt'}" --feedback

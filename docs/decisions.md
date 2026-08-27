@@ -125,3 +125,31 @@ describes the world. Dropping is the correct behaviour for a control loop.
 
 Taking a frame removes it, so a stalled camera cannot be silently re-inferred
 as though it were live, and `max_image_age` rejects frames that are too old.
+
+## D015 — Lateral velocity is passed through by default
+
+The model predicts `[x, y, theta]`, and the upstream evaluator executes all
+three against a holonomic simulator agent. The executor therefore publishes
+`linear.y` as computed by default (`lateral_policy: preserve`), which is
+lossless and matches the behaviour the checkpoint was evaluated under.
+
+`lateral_policy: drop` zeroes it for a base that cannot move sideways, and
+logs how much lateral motion was discarded rather than silently swallowing it.
+
+Folding lateral offset into steering is deliberately not implemented. It would
+be a control law, not a conversion, and the first executor is open loop by
+D003. The choice belongs with the target robot, which is not yet selected;
+until then neither default can be validated against hardware.
+
+## D016 — Staleness is checked two independent ways
+
+`trajectory_timeout` measures time since the executor last accepted a
+trajectory and needs no clock agreement with the camera. It is the guard that
+stops the base when the upstream dies.
+
+`max_trajectory_age` compares the trajectory's observation stamp with the
+executor's clock, and catches the case the timeout cannot see: an upstream
+that keeps publishing but is recycling a frozen frame. It defaults to 0.5 s.
+An unsynchronised camera clock makes it reject everything, which halts the
+robot and logs the measured age, so the failure is safe and diagnosable rather
+than silent.

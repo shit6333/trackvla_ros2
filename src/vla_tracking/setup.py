@@ -25,6 +25,8 @@ setup(
     entry_points={
         'console_scripts': [
             'vla_inference_node = vla_tracking.inference_node:main',
+            'trajectory_executor_node = '
+            'vla_tracking.trajectory_executor_node:main',
         ],
         # Backends advertise themselves here so that this package never
         # imports a model adapter. See vla_tracking/backend_loader.py.
