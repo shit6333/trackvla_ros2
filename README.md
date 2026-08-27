@@ -6,11 +6,18 @@ so that compatible tracking or approach models can be substituted later.
 
 ## Current status
 
-Phases 0 to 2 are complete. The CUDA + ROS 2 Jazzy image builds, the three ROS
-packages build and pass their tests, and the OmTrackVLA planner is reachable
-through a model-independent backend contract. Steady-state inference measures
-39 ms, about 25.6 Hz. The runtime nodes themselves do not exist yet; they
-arrive in Phases 3 and 4.
+Phases 0 to 3 are complete. `vla_inference_node` runs: it accepts a
+`TrackTarget` goal, consumes camera frames, and publishes trajectories and
+status. Steady-state OmTrackVLA inference measures 39 ms, about 25.6 Hz. The
+trajectory executor does not exist yet, so nothing publishes `/cmd_vel`; that
+is Phase 4.
+
+```bash
+ros2 run vla_tracking vla_inference_node --ros-args -p backend:=fake
+ros2 action send_goal /vla/track_target \
+    vla_tracking_interfaces/action/TrackTarget \
+    "{instruction: 'follow the person in the red shirt'}" --feedback
+```
 
 ```bash
 cp .env.example .env      # then set MODEL_CACHE

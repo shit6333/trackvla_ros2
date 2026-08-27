@@ -115,3 +115,13 @@ padded history. `Prediction` rejects the contradictory combination of
 
 At the measured 25.6 Hz the 31-frame history fills in roughly 1.2 s at full
 rate, or 3.1 s if frames are sampled at the checkpoint's 10 Hz cadence.
+
+## D014 — The inference node drops frames instead of queueing them
+
+`vla_inference_node` keeps only the newest camera frame and discards any
+earlier unconsumed one. Inference is slower than a camera, so a queue would
+accumulate lag until the base were driven from imagery that no longer
+describes the world. Dropping is the correct behaviour for a control loop.
+
+Taking a frame removes it, so a stalled camera cannot be silently re-inferred
+as though it were live, and `max_image_age` rejects frames that are too old.

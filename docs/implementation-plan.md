@@ -190,11 +190,16 @@ Provisional core configuration:
 ```yaml
 vla_inference_node:
   ros__parameters:
-    backend: omtrackvla
+    backend: omtrackvla        # entry point name, not a class path
     image_topic: /camera/image_raw
     base_frame: base_link
-    model_id: omlab/OmTrackVLA-0.6B
+    inference_rate: 10.0       # Hz; matches the checkpoint's 0.1 s cadence
+    max_image_age: 0.5         # seconds; 0 disables the staleness check
+    status_rate: 5.0
+    model_dir: ''              # empty falls back to HF_MODEL_DIR
+    source_path: ''            # empty falls back to OMTRACKVLA_SRC
     require_cuda: true
+    history_length: 0          # 0 keeps the backend's own default of 31
 
 trajectory_executor_node:
   ros__parameters:

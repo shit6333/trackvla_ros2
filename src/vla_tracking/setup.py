@@ -23,11 +23,9 @@ setup(
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
-        # The console scripts are declared in Phase 3 and Phase 4, when
-        # inference_node and trajectory_executor_node exist. Declaring them
-        # against missing modules would install launchable executables that
-        # fail at import time.
-        'console_scripts': [],
+        'console_scripts': [
+            'vla_inference_node = vla_tracking.inference_node:main',
+        ],
         # Backends advertise themselves here so that this package never
         # imports a model adapter. See vla_tracking/backend_loader.py.
         'vla_tracking.backends': [
