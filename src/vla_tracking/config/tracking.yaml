@@ -50,13 +50,15 @@ trajectory_executor_node:
 
     command_rate: 20.0
 
-    # WARNING: these limits are not validated against any robot, and the
-    # linear limit is currently too low for this checkpoint. The model
-    # predicts roughly 0.49 m/s forward, so at 0.2 m/s the clamp is engaged
-    # continuously and the executor discards the model's speed control
-    # entirely: forward speed becomes constant and only heading varies.
-    # Set these from the target robot's real capability before any experiment
-    # whose results depend on speed.
+    # The robot's full speed, per axis. These are the conversion factors, not
+    # a ceiling: the model reports a fraction of full speed, so a prediction
+    # of 0.49 forward commands 0.49 * max_linear_velocity. Each axis carries
+    # its own value because the model normalizes each one separately.
+    #
+    # WARNING: not validated against any robot. Set them from the target
+    # platform's real capability before any experiment whose results depend on
+    # speed, because they now decide how fast the robot moves rather than only
+    # where it is cut off.
     max_linear_velocity: 0.2
     max_lateral_velocity: 0.2
     max_angular_velocity: 0.5

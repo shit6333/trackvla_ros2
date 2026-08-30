@@ -6,6 +6,7 @@ import pytest
 
 from vla_tracking.trajectory_conversion import (
     clamp_segment,
+    scale_segment,
     trajectory_to_segments,
     VelocitySegment,
     wrap_angle,
@@ -108,3 +109,43 @@ def test_clamping_maps_non_finite_values_to_zero():
     assert limited.linear_x == 0.0
     assert limited.linear_y == 0.0
     assert limited.angular_z == 0.0
+
+
+def test_scaling_applies_each_axis_own_full_speed():
+    """Check a fraction of full speed becomes that fraction of each limit."""
+    segment = VelocitySegment(
+        linear_x=0.5, linear_y=-0.25, angular_z=1.0, duration=0.1
+    )
+    scaled = scale_segment(segment, 0.2, 0.4, 0.5)
+    assert scaled.linear_x == pytest.approx(0.1)
+    assert scaled.linear_y == pytest.approx(-0.1)
+    assert scaled.angular_z == pytest.approx(0.5)
+    assert scaled.duration == pytest.approx(0.1)
+
+
+def test_scaling_preserves_the_ratio_between_axes():
+    """
+    Check the direction the model asked for survives the conversion.
+
+    This is the property a per-axis clamp destroys, and it is why scaling
+    rather than clamping is what converts a prediction into a command.
+    """
+    segment = VelocitySegment(
+        linear_x=0.9, linear_y=0.3, angular_z=0.0, duration=0.1
+    )
+    scaled = scale_segment(segment, 0.2, 0.2, 0.5)
+    assert math.atan2(scaled.linear_y, scaled.linear_x) == pytest.approx(
+        math.atan2(segment.linear_y, segment.linear_x)
+    )
+
+
+def test_a_bounded_prediction_passes_the_fuse_untouched():
+    """Check the clamp does not engage on output the planner already bounds."""
+    segment = VelocitySegment(
+        linear_x=1.0, linear_y=-1.0, angular_z=1.0, duration=0.1
+    )
+    scaled = scale_segment(segment, 0.2, 0.2, 0.5)
+    limited = clamp_segment(scaled, 0.2, 0.2, 0.5)
+    assert limited.linear_x == pytest.approx(scaled.linear_x)
+    assert limited.linear_y == pytest.approx(scaled.linear_y)
+    assert limited.angular_z == pytest.approx(scaled.angular_z)

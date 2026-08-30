@@ -61,10 +61,17 @@ class Prediction:
     """
     A backend's normalized answer for one observation.
 
-    :param waypoints: (N, 3) float array of x, y, theta in metres and radians.
-        Row 0 is the trajectory origin, so executable rows start at index 1.
-    :param dt: Seconds between consecutive waypoints. Comes from the backend
-        or its checkpoint metadata and is never inferred by a consumer.
+    :param waypoints: (N, 3) float array of x, y, theta. Row 0 is the
+        trajectory origin, so executable rows start at index 1. The values are
+        normalized rather than metric: divided by `dt` they give the fraction
+        of the robot's full speed the model asked for, and a consumer applies
+        the robot's own full-speed values to obtain metres and radians per
+        second. A backend that natively predicts metres must normalize before
+        returning, because nothing downstream can tell the two apart.
+    :param dt: The constant the waypoints were integrated with, which a
+        consumer divides by to recover the command. It comes from the backend
+        or its checkpoint metadata and is never inferred, and it is not a
+        duration: it says nothing about how long a command should be held.
     :param frame_id: Robot frame the waypoints are relative to.
     :param stamp_ns: Timestamp of the observation this came from, copied
         through unchanged so a consumer can measure staleness.

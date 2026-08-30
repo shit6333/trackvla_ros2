@@ -23,7 +23,12 @@ import torch
 #: make_tracking_data.py, and the value the upstream evaluator hard-codes.
 CHECKPOINT_HISTORY_LENGTH = 31
 
-#: Seconds between predicted waypoints, as used by the upstream evaluator.
+#: The constant the training labels were integrated with, and which the
+#: upstream evaluator divides by to recover a command from `tau[0, 1]`.
+#:
+#: Not a duration. The simulator the data came from steps at 1 / ctrl_freq,
+#: so this value is bookkeeping that cancels between the integration in
+#: make_tracking_data.py and the division here. It must match that script.
 CHECKPOINT_DT = 0.1
 
 #: Square side the vision encoders are fed at.

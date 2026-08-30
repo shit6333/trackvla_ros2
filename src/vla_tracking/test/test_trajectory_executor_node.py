@@ -165,8 +165,8 @@ def test_a_valid_trajectory_produces_the_expected_velocity(harness):
         time.sleep(0.01)
 
     assert moving is not None, 'the executor never commanded motion'
-    # 0.01 m over dt = 0.1 s.
-    assert moving.linear.x == pytest.approx(0.1, abs=1e-6)
+    # 0.01 over dt = 0.1 is a tenth of full speed, and full speed is 0.2 m/s.
+    assert moving.linear.x == pytest.approx(0.02, abs=1e-6)
     assert moving.linear.y == pytest.approx(0.0, abs=1e-9)
     assert moving.angular.z == pytest.approx(0.0, abs=1e-9)
 
@@ -251,12 +251,18 @@ def test_non_finite_waypoints_never_reach_cmd_vel(harness):
 
 
 def test_velocity_limits_are_enforced(harness):
-    """Check an absurd prediction is bounded rather than passed through."""
+    """
+    Check a prediction that escapes its own bound is cut off.
+
+    The planner bounds its output to [-1, 1], so scaling alone keeps a real
+    prediction within the limits. This is the fuse behind that: a backend
+    emitting 100 times full speed must not reach the wheels.
+    """
     harness.wait_for_commands(2)
     harness.publish(
         waypoints=[
             Waypoint2D(x=0.0, y=0.0, theta=0.0),
-            # 10 m in 0.1 s would be 100 m/s.
+            # 10 over dt = 0.1 is 100x full speed.
             Waypoint2D(x=10.0, y=0.0, theta=0.0),
         ]
     )
@@ -295,11 +301,11 @@ def test_a_newer_trajectory_preempts_the_previous_one(harness):
     while time.monotonic() < deadline:
         if harness.commands and not is_zero(harness.commands[-1]):
             observed = harness.commands[-1].linear.x
-            if observed == pytest.approx(0.15, abs=1e-6):
+            if observed == pytest.approx(0.03, abs=1e-6):
                 break
         time.sleep(0.01)
 
-    assert observed == pytest.approx(0.15, abs=1e-6), \
+    assert observed == pytest.approx(0.03, abs=1e-6), \
         f'expected the newer prediction to take over, saw {observed}'
 
 

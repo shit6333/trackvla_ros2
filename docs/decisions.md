@@ -183,3 +183,28 @@ publish issued during teardown can be lost before the middleware sends it.
 
 This is a best-effort guarantee. `SIGKILL` defeats it, so it does not replace
 either the executor's own `trajectory_timeout` or a watchdog on the base.
+
+## D019 — Velocity limits scale the model's output, they do not cap it
+
+OmTrackVLA predicts a fraction of full speed, not metres per second. It was
+trained on Habitat base commands, which that simulator clips to `[-1, 1]` and
+multiplies by a per-axis speed constant, and its training labels integrate
+those commands with a bookkeeping constant of `0.1`. Dividing a waypoint by
+`dt` inverts that integration and returns the command; the planner's output
+`tanh` bounds the result to `[-1, 1]`.
+
+The executor therefore multiplies by `max_linear_velocity` and its siblings
+rather than clamping to them. Those parameters are the robot's full speed per
+axis, and each axis needs its own because the model normalizes each one
+separately. No metric scale can be inherited from the simulator, whose
+configured maxima are not physically calibrated.
+
+Treating the output as metric had a specific consequence: a prediction of
+`0.49` was read as `0.49 m/s` against a `0.2` limit, so the clamp engaged on
+every step and the executor became a bang-bang controller with a constant
+forward speed. Because the clamp is applied per axis it also changed the
+commanded direction, which scaling does not.
+
+The clamp is retained behind the conversion as a fuse. A prediction the
+planner bounded passes through it untouched, so it now catches only a backend
+that escapes its own bound and non-finite values from any source.

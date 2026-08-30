@@ -36,11 +36,14 @@ ros2 launch vla_tracking tracking.launch.py enable_collision_monitor:=true
 Enabling the collision monitor requires a real sensor on its source topic. It
 is fail-safe by design, so with no data arriving it holds the base stopped.
 
-**The default velocity limits are not validated against any robot, and the
-linear limit is too low for this checkpoint.** The model predicts roughly
-0.49 m/s forward against a 0.2 m/s limit, so the clamp is engaged
-continuously and the executor discards the model's speed control. See
-`config/tracking.yaml`.
+The model predicts a fraction of full speed rather than metres per second, so
+`max_linear_velocity` and its siblings are the robot's full-speed values and
+are what convert a prediction into a command: a prediction of `0.49` forward
+commands `0.49 * max_linear_velocity`.
+
+**The defaults are not validated against any robot.** Set them from the target
+platform's real capability before any experiment whose result depends on
+speed. See `config/tracking.yaml`.
 
 ```bash
 cp .env.example .env      # then set MODEL_CACHE

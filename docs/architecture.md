@@ -124,7 +124,9 @@ Initial conventions, to be confirmed with checkpoint-level tests:
 - waypoint zero represents the current pose or trajectory origin;
 - executable points begin at index one;
 - `x` is forward, `y` is lateral, and `theta` is yaw;
-- linear units are metres and angular units are radians;
+- `x`, `y` and `theta` are normalized, in [-1, 1] once divided by `dt`, and
+  become metres and radians per second only after the executor applies the
+  robot's full-speed values;
 - `dt` comes from backend/checkpoint metadata and is never inferred by the
   executor.
 
@@ -175,7 +177,7 @@ The normalized types are:
 
 ```text
 Observation                 Prediction
-  rgb: HxWx3 uint8            waypoints: [N, 3] metres and radians
+  rgb: HxWx3 uint8            waypoints: [N, 3] normalized, see below
   stamp_ns: int               dt: seconds
   instruction: str            frame_id: str
                               stamp_ns: int, copied from the observation

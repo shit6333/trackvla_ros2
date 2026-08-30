@@ -18,9 +18,13 @@ below are the defaults; all of them are remappable.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `x` | float64 | forward, metres |
-| `y` | float64 | lateral, left positive, metres |
-| `theta` | float64 | yaw, radians |
+| `x` | float64 | forward, normalized |
+| `y` | float64 | lateral, left positive, normalized |
+| `theta` | float64 | yaw, normalized |
+
+Normalized, not metric: divided by `dt` these give the fraction of full speed
+the model asked for, bounded to [-1, 1]. The executor multiplies by the
+robot's `max_*_velocity` to obtain metres and radians per second.
 
 Project-owned rather than `geometry_msgs/Pose2D`, which ROS deprecated in
 Foxy. See D011.
@@ -33,7 +37,7 @@ Foxy. See D011.
 | `header.frame_id` | string | frame the waypoints are relative to |
 | `backend_name` | string | which model produced this |
 | `waypoints` | Waypoint2D[] | index 0 is the origin; executable points start at 1 |
-| `dt` | float32 | seconds between waypoints, supplied by the backend |
+| `dt` | float32 | the constant the waypoints were integrated with; divide by it to recover the command. Not a duration |
 | `valid` | bool | false means it must not be executed |
 | `status` | string | detail, especially when invalid |
 
@@ -108,12 +112,15 @@ ros2 action send_goal /vla/track_target \
 | `max_trajectory_age` | `0.5` | seconds; 0 disables, needs a synchronised camera clock |
 | `lateral_policy` | `preserve` | `preserve` or `drop` |
 
-> **The default velocity limits are not validated against any robot.** The
-> checkpoint predicts roughly 0.49 m/s forward, so at `max_linear_velocity:
-> 0.2` the clamp engages continuously and the executor discards the model's
-> speed control: forward speed becomes constant and only heading varies. Set
-> these from the target robot's real capability before any experiment whose
-> result depends on speed.
+> The three `max_*_velocity` parameters are the robot's full speed per axis
+> and are the conversion factors, not a ceiling: a prediction of `0.49`
+> forward commands `0.49 * max_linear_velocity`. Each axis carries its own
+> value because the model normalizes each one separately. The clamp behind the
+> conversion is a fuse for a backend that escapes its own bound.
+>
+> **The defaults are not validated against any robot.** Set them from the
+> target platform's real capability before any experiment whose result depends
+> on speed, because they decide how fast the robot moves.
 
 ## Launch arguments
 

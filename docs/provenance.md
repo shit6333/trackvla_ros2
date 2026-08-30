@@ -82,7 +82,17 @@ the rationale for each deviation from the OmTrackVLA runtime is in
 | Backend inference, under test load | 55.1 ms | same, with the rest of the suite running |
 | In-pipeline inference | 46.6 ms | measured through `vla_inference_node` |
 | Max `abs(waypoint[0])` | 0.0018 | confirms waypoint 0 is the trajectory origin |
-| Predicted forward speed | approx. 0.49 m/s | from `tau[0, 1]` at `dt = 0.1` |
+| Predicted forward command | approx. 0.49 of full speed | from `tau[0, 1]` at `dt = 0.1` |
+
+The forward figure is a fraction of full speed, not a speed. OmTrackVLA was
+trained on Habitat base commands, which that simulator clips to [-1, 1] and
+multiplies by a per-axis speed constant, and the training labels integrate
+those commands with a bookkeeping constant of 0.1 rather than the simulator's
+real timestep of `1 / ctrl_freq`. Dividing a waypoint by `dt` therefore
+inverts that integration and returns the command, and the planner's output
+`tanh` bounds it to [-1, 1]. No metric speed can be inherited from the
+simulator, whose configured maxima are not physically calibrated, so the
+metric scale belongs to the target robot and is applied by the executor.
 
 The inference figures vary with machine load; treat the isolated number as the
 floor and the loaded one as a realistic upper bound rather than either being

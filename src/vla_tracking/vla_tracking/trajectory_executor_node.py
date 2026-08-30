@@ -6,6 +6,11 @@ refusal. Anything malformed, stale, invalid, or unbounded is rejected with a
 logged reason, and every path that is not "executing a checked segment right
 now" publishes zero velocity.
 
+The model reports a fraction of full speed rather than metres per second, so
+`max_linear_velocity` and its siblings are the robot's full-speed values and
+are what convert a prediction into a command. They are not a ceiling the
+model is trimmed to; the clamp behind the conversion is a separate fuse.
+
 Execution is open loop: each segment is derived from the relative transform
 between two consecutive predicted poses and applied for one `dt`. There is no
 odometry feedback, so the node does not subscribe to /odom (see D003).
@@ -23,6 +28,7 @@ from rclpy.node import Node
 
 from vla_tracking.trajectory_conversion import (
     clamp_segment,
+    scale_segment,
     trajectory_to_segments,
     VelocitySegment,
 )
@@ -129,7 +135,7 @@ class TrajectoryExecutorNode(Node):
 
         self.get_logger().info(
             f'executing {self._waypoints_to_execute} waypoint(s) per '
-            f'prediction, limits {self._max_linear:.2f} m/s / '
+            f'prediction, full speed {self._max_linear:.2f} m/s / '
             f'{self._max_angular:.2f} rad/s, lateral policy '
             f'{self._lateral_policy!r}'
         )
@@ -188,8 +194,18 @@ class TrajectoryExecutorNode(Node):
             self._command_publisher.publish(Twist())
             return
 
+        # The segment is a fraction of full speed, so scaling is the actual
+        # conversion and the clamp behind it is only a fuse.
         limited = clamp_segment(
-            segment, self._max_linear, self._max_lateral, self._max_angular
+            scale_segment(
+                segment,
+                self._max_linear,
+                self._max_lateral,
+                self._max_angular,
+            ),
+            self._max_linear,
+            self._max_lateral,
+            self._max_angular,
         )
         command = Twist()
         command.linear.x = limited.linear_x
