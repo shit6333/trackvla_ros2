@@ -37,7 +37,7 @@ Responsibilities:
 - maintain the temporal image history required by the selected backend;
 - load and reset a model backend;
 - schedule inference without blocking image ingestion;
-- publish the complete predicted trajectory, status, and optional debug image;
+- publish the complete predicted trajectory and status;
 - publish no robot velocity commands.
 
 Inputs:
@@ -53,7 +53,11 @@ Outputs:
 | --- | --- | --- |
 | `/vla/trajectory` | `vla_tracking_interfaces/msg/VlaTrajectory` | Short-horizon poses relative to the robot at prediction time. |
 | `/vla/status` | `vla_tracking_interfaces/msg/VlaStatus` | Task state, backend state, inference timing, and errors. |
-| `/vla/debug_image` | `sensor_msgs/msg/Image` | Optional visualization overlay. |
+
+A visualization overlay on `/vla/debug_image` was planned and is not
+implemented; the node publishes no such topic. Rendering the trajectory needs a
+separate `nav_msgs/Path` debug topic in any case, because RViz cannot display a
+custom message (D011).
 
 Proposed task states are `IDLE`, `WARMING_UP`, `TRACKING`, `ERROR`, and
 `STOPPED`. Receiving a new task or cancelling the current task clears temporal

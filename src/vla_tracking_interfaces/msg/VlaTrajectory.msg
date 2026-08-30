@@ -11,11 +11,17 @@ std_msgs/Header header
 string backend_name
 
 # Waypoint 0 is the trajectory origin, i.e. the robot's pose at prediction
-# time. Executable waypoints therefore begin at index 1.
+# time. Executable waypoints therefore begin at index 1. The values are
+# normalized rather than metric; see Waypoint2D.
 Waypoint2D[] waypoints
 
-# Seconds between consecutive waypoints. Supplied by the backend or its
+# The constant the waypoints were integrated with, which a consumer divides by
+# to recover the command the model asked for. Supplied by the backend or its
 # checkpoint metadata and never inferred by a consumer.
+#
+# Not a duration. It says nothing about how long a command should be held, and
+# for OmTrackVLA it is bookkeeping that cancels between the integration that
+# built the training labels and this division. See D019.
 float32 dt
 
 # False when the backend could not produce a usable prediction. Consumers must
