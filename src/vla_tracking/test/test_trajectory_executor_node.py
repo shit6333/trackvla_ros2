@@ -171,48 +171,71 @@ def test_a_valid_trajectory_produces_the_expected_velocity(harness):
     assert moving.angular.z == pytest.approx(0.0, abs=1e-9)
 
 
-def _count_moving_commands(running, settle=0.6):
-    """Publish one trajectory and count the commands that move the base."""
+#: Steps of 0.01, 0.02 and 0.03, so each segment commands its own speed and
+#: which of them were executed can be read straight off the commands.
+UNEQUAL_STEPS = [
+    Waypoint2D(x=0.0, y=0.0, theta=0.0),
+    Waypoint2D(x=0.01, y=0.0, theta=0.0),
+    Waypoint2D(x=0.03, y=0.0, theta=0.0),
+    Waypoint2D(x=0.06, y=0.0, theta=0.0),
+]
+
+
+def _speeds_commanded(running, settle=0.6):
+    """Publish one trajectory and report the distinct speeds it produced."""
     running.wait_for_commands(2)
     baseline = len(running.commands)
-    running.publish()
+    running.publish(waypoints=UNEQUAL_STEPS)
     time.sleep(settle)
-    return sum(
-        0 if is_zero(command) else 1
+    return {
+        round(command.linear.x, 6)
         for command in running.commands[baseline:]
-    )
+        if not is_zero(command)
+    }
 
 
 def test_only_the_requested_number_of_waypoints_is_executed(harness):
     """
-    Check waypoints_to_execute bounds how long one prediction drives the base.
+    Check waypoints_to_execute bounds how much of a prediction is followed.
 
-    The trajectory carries three executable waypoints. Counting the commands
-    that move the base is measured against a node configured to execute three
-    of them, so the assertion compares two runs of the same code rather than
-    depending on an absolute delivery rate.
+    The trajectory's three segments each command a different speed, so the
+    speeds that appear say exactly which waypoints were executed. Duration
+    cannot answer that any more: a plan holds its last segment until it is
+    preempted or times out, so both configurations drive the base for the
+    same length of time and differ only in how far along the prediction they
+    get before the command stops changing.
     """
-    one_segment = _count_moving_commands(harness)
-    assert one_segment > 0, 'the single-waypoint run never moved'
+    one = _speeds_commanded(harness)
+    assert one == {pytest.approx(0.02)}, (
+        f'executing one waypoint should only ever command 0.02 m/s, saw {one}'
+    )
 
     three = Harness(
         overrides=[Parameter('waypoints_to_execute', value=3)]
     )
     try:
-        three_segments = _count_moving_commands(three)
+        seen = _speeds_commanded(three)
     finally:
         three.shutdown()
 
-    assert three_segments > one_segment * 2, (
-        f'executing three waypoints produced {three_segments} moving commands '
-        f'against {one_segment} for one; waypoints_to_execute is not bounding '
-        f'execution'
-    )
+    for expected in (0.02, 0.04, 0.06):
+        assert any(speed == pytest.approx(expected) for speed in seen), (
+            f'executing three waypoints never commanded {expected} m/s; '
+            f'saw {sorted(seen)}'
+        )
 
 
 def test_silence_upstream_returns_to_zero(harness):
-    """Check a stalled upstream can never leave a command latched."""
+    """
+    Check a stalled upstream can never leave a command latched.
+
+    The base must have moved first, so that what stopped it is the timeout
+    rather than a plan quietly running out of segments. Only the timeout
+    reports why the base stopped, which is the difference between a diagnosed
+    stop and a silent one.
+    """
     harness.wait_for_commands(2)
+    baseline = len(harness.commands)
     harness.publish(
         waypoints=[
             Waypoint2D(x=0.0, y=0.0, theta=0.0),
@@ -220,8 +243,49 @@ def test_silence_upstream_returns_to_zero(harness):
         ]
     )
     time.sleep(TIMEOUT + 0.3)
+
+    during = harness.commands[baseline:]
+    assert any(not is_zero(command) for command in during), \
+        'the base never moved, so this proves nothing about the timeout'
     assert is_zero(harness.commands[-1]), \
         'a command was still latched after the timeout'
+
+
+def test_a_late_prediction_does_not_interrupt_the_command(harness):
+    """
+    Check a plan holds rather than stopping between predictions.
+
+    Segment durations come from the constant the backend integrated its
+    waypoints with, not from when a replacement will arrive, and inference
+    time varies. A plan that stopped when its durations ran out commanded a
+    full stop in the interval before the next prediction landed. Here every
+    prediction is deliberately later than the segment it replaces.
+    """
+    harness.wait_for_commands(2)
+    baseline = len(harness.commands)
+    for _ in range(5):
+        harness.publish(
+            waypoints=[
+                Waypoint2D(x=0.0, y=0.0, theta=0.0),
+                Waypoint2D(x=0.02, y=0.0, theta=0.0),
+            ]
+        )
+        # dt is 0.1, so each prediction arrives 0.03 s after the segment it
+        # replaces ran out, and well inside trajectory_timeout.
+        time.sleep(0.13)
+
+    during = harness.commands[baseline:]
+    moving = [index for index, c in enumerate(during) if not is_zero(c)]
+    assert moving, 'the base never moved'
+    stalled = [
+        index for index in range(moving[0], moving[-1])
+        if is_zero(during[index])
+    ]
+    assert not stalled, (
+        f'{len(stalled)} of {moving[-1] - moving[0]} commands between '
+        f'predictions were a full stop; the plan is expiring instead of '
+        f'holding'
+    )
 
 
 def test_an_invalid_trajectory_never_moves_the_base(harness):

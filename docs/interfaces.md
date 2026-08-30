@@ -102,7 +102,7 @@ ros2 action send_goal /vla/track_target \
 | Parameter | Default | Meaning |
 | --- | --- | --- |
 | `waypoints_to_execute` | `1` | segments driven per prediction |
-| `trajectory_timeout` | `0.3` | seconds without an accepted trajectory before stopping |
+| `trajectory_timeout` | `0.3` | seconds without an accepted trajectory before stopping; the only thing that ends a plan nothing has preempted |
 | `command_rate` | `20.0` | Hz |
 | `max_linear_velocity` | `0.2` | **see the warning below** |
 | `max_lateral_velocity` | `0.2` | m/s |

@@ -208,3 +208,38 @@ commanded direction, which scaling does not.
 The clamp is retained behind the conversion as a fuse. A prediction the
 planner bounded passes through it untouched, so it now catches only a backend
 that escapes its own bound and non-finite values from any source.
+
+## D020 — A plan holds its last segment instead of expiring
+
+Segment durations come from `dt`, the constant a backend integrated its
+waypoints with. That constant says nothing about when a replacement
+prediction will arrive, and predictions arrive with jitter because inference
+time varies: the measured range is 39 to 55 ms, and that variance lands
+directly in the interval between them.
+
+A plan that stopped when its durations ran out therefore commanded a full stop
+in the gap before the next prediction landed, on whichever cycles inference had
+slowed down. Simulated against the measured jitter at the default rates, one
+command in ten was a spurious zero. It failed safe and it stuttered.
+
+It also made `trajectory_timeout` unreachable. With the default
+`waypoints_to_execute: 1` a plan was always cleared at `dt` = 0.1 s, long
+before the 0.3 s timeout could fire, so a dead upstream stopped the base
+through a path that logs nothing. D016 describes that timeout as the guard for
+exactly this case, and the guard was dead.
+
+A plan now holds its last segment. Preemption by a newer prediction is the
+normal way one ends, and the timeout is the way one ends when the upstream has
+died, which is what D016 always claimed. The hold is bounded by that timeout,
+so the cost is that a dead upstream leaves the base moving for
+`trajectory_timeout` rather than for `dt`: 0.3 s instead of 0.1 s, which at
+full speed is `0.3 * max_linear_velocity` metres. Lower the timeout to tighten
+it.
+
+This is the behaviour of the visualnav-transformer deployment controller,
+which holds a waypoint for a full second while republishing faster than its
+model runs, and which has been run on a robot.
+
+`waypoints_to_execute` no longer bounds how long one prediction drives the
+base, only how far along it the command keeps changing. Its test was rewritten
+to measure the speeds commanded rather than the time spent moving.

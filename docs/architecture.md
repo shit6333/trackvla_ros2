@@ -69,7 +69,7 @@ Responsibilities:
 - execute at most `waypoints_to_execute` segments from a prediction;
 - immediately preempt the remaining old segments when a new prediction arrives;
 - apply hard robot velocity limits;
-- publish a zero velocity after execution, timeout, cancellation, or error.
+- publish a zero velocity after timeout, cancellation, or error.
 
 Input:
 
@@ -140,12 +140,16 @@ waypoints_to_execute: 1
 
 For a prediction `A`:
 
-- value `1`: execute only the segment ending at `A[1]`, then stop unless a new
-  prediction arrives;
+- value `1`: execute only the segment ending at `A[1]`;
 - value `3`: execute segments ending at `A[1]`, `A[2]`, and `A[3]` while waiting
   for a newer prediction;
 - a newer prediction always preempts all unexecuted points in `A`;
-- reaching the configured count or end of trajectory produces zero velocity;
+- reaching the configured count or the end of the trajectory holds the last
+  segment rather than commanding zero. Segment durations come from the
+  constant the backend integrated its waypoints with, which says nothing about
+  when a replacement will arrive, so stopping there commanded a full stop in
+  the interval before the next prediction landed. Only `trajectory_timeout`
+  ends a plan that nothing has preempted;
 - valid values are positive and are clamped or rejected when larger than the
   number of executable points.
 

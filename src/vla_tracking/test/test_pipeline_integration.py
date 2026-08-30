@@ -158,9 +158,13 @@ def test_cancelling_stops_the_base(pipeline):
         description='the task to report that it stopped',
     )
 
+    # A plan holds its last segment until trajectory_timeout, so the zeros
+    # only start 0.5 s after the final trajectory. At command_rate 50 Hz that
+    # is 25 cycles; wait for twice that so the tail below cannot straddle the
+    # moment the timeout fires.
     settled = len(pipeline.observer.commands)
     wait_until(
-        lambda: len(pipeline.observer.commands) > settled + 20,
+        lambda: len(pipeline.observer.commands) > settled + 50,
         timeout=10.0,
         description='further command cycles after cancellation',
     )

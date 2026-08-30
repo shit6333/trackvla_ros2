@@ -45,7 +45,10 @@ trajectory_executor_node:
 
     # Stop if no trajectory has been accepted within this many seconds. Needs
     # no clock agreement with the camera; this is the guard that stops the base
-    # when the upstream dies.
+    # when the upstream dies, and the only thing that ends a plan nothing has
+    # preempted. A plan holds its last segment until then, so this also bounds
+    # how long a dead upstream leaves the base moving: at full speed it is
+    # trajectory_timeout * max_linear_velocity metres.
     trajectory_timeout: 0.3
 
     command_rate: 20.0

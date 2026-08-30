@@ -55,15 +55,30 @@ class _Plan:
         self.started_at = received_at
 
     def segment_at(self, elapsed: float) -> Optional[VelocitySegment]:
-        """Return the segment covering `elapsed`, or None once exhausted."""
-        if elapsed < 0.0:
+        """
+        Return the segment covering `elapsed`, holding the last one after.
+
+        A plan does not expire on its own. Its durations come from the
+        constant the backend integrated its waypoints with, which says nothing
+        about when a replacement will arrive, and predictions arrive with
+        jitter because inference time varies. Stopping when the durations ran
+        out therefore commanded a full stop in the few milliseconds before the
+        next prediction landed, and did so on whichever cycles inference had
+        slowed down.
+
+        Holding instead makes preemption the normal way a plan ends and
+        `trajectory_timeout` the way it ends when the upstream has died, which
+        is the guard D016 describes. Nothing here can run away: the caller
+        applies that timeout before asking, so the hold is bounded by it.
+        """
+        if elapsed < 0.0 or not self.segments:
             return None
         boundary = 0.0
         for segment in self.segments:
             boundary += segment.duration
             if elapsed < boundary:
                 return segment
-        return None
+        return self.segments[-1]
 
 
 class TrajectoryExecutorNode(Node):
@@ -226,9 +241,11 @@ class TrajectoryExecutorNode(Node):
         """
         Select the segment to command now, expiring the plan when due.
 
-        Returns None whenever the robot must be still: no plan has arrived,
-        the upstream has gone quiet, or every executable segment has been
-        applied and no newer prediction has preempted them.
+        Returns None whenever the robot must be still: no plan has arrived, or
+        the upstream has gone quiet for longer than `trajectory_timeout`. A
+        plan whose segments have all been applied holds its last one rather
+        than stopping, so running out of segments is not by itself a reason to
+        command zero; see `_Plan.segment_at`.
         """
         now = time.monotonic()
         with self._plan_lock:
