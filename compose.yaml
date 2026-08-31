@@ -64,6 +64,9 @@ services:
 
     volumes:
       - .:/workspace/trackvla_ros2
+      # Gazebo's Fuel cache. The world's actors are fetched from Fuel on first
+      # use; persisting the cache keeps every later run offline and identical.
+      - ./cache/gz:/home/developer/.gz
 
     environment:
       ROS_DOMAIN_ID: "${ROS_DOMAIN_ID}"

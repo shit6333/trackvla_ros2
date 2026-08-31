@@ -43,11 +43,13 @@
     <!-- Chase camera. Rigidly attached behind and above the chassis, which
          gives a following third-person view with no GUI and no operator: the
          renderer runs headless and the frames are written straight to a file.
-         Placed 1.1 m back and 0.75 m up, pitched down 30 degrees, which puts
-         the robot just below the centre of frame and leaves the ground ahead
-         of it visible. -->
+         Placed 1.8 m back and 1.2 m up, pitched down 16 degrees. The pitch is
+         shallow on purpose: at 30 degrees the frame ended below the horizon
+         and a person standing five metres ahead was cropped to their legs,
+         which is useless for a video of a person-following task. This keeps
+         both the robot and a standing adult in frame. -->
     <link name="chase_camera_link">
-      <pose>-1.1 0 0.75 0 0.52 0</pose>
+      <pose>-1.8 0 1.2 0 0.28 0</pose>
       <inertial>
         <mass>0.01</mass>
         <inertia>
