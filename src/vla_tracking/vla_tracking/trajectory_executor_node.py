@@ -342,7 +342,13 @@ def main(args: Optional[list] = None) -> None:
     """Spin the trajectory executor, stopping the base on the way out."""
     rclpy.init(args=args)
     node = TrajectoryExecutorNode()
-    executor = MultiThreadedExecutor()
+    # Capped deliberately. MultiThreadedExecutor defaults to one thread per
+    # CPU, and on a 24-core host those threads spin in rclpy's Python-level
+    # wait loop and contend for the GIL. Measured against the simulator, that
+    # stretched an inference call from about 75 ms to between one and two
+    # seconds, which in turn made every trajectory too stale for the executor
+    # to accept. The node needs one thread per callback group, not per core.
+    executor = MultiThreadedExecutor(num_threads=3)
     executor.add_node(node)
 
     # rclpy installs a SIGINT handler, but SIGTERM terminates a Python process

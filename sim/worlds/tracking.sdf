@@ -16,8 +16,8 @@
          on the ROS clock, so the two only agree while simulation time tracks
          wall time. Running faster than real time requires converting both
          nodes to the ROS clock first. See D021. -->
-    <physics name="1ms" type="ignored">
-      <max_step_size>0.001</max_step_size>
+    <physics name="4ms" type="ignored">
+      <max_step_size>0.004</max_step_size>
       <real_time_factor>1.0</real_time_factor>
     </physics>
 

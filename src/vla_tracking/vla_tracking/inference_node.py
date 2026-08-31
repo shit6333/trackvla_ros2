@@ -324,6 +324,12 @@ class VlaInferenceNode(Node):
                     published=published,
                 )
 
+            breakdown = getattr(self._backend, 'timing_breakdown', None)
+            self.get_logger().info(
+                f'inference {duration * 1000:.0f} ms'
+                + (f' ({breakdown})' if breakdown else ''),
+                throttle_duration_sec=5.0,
+            )
             if self._publish_prediction(prediction, duration, goal_handle):
                 published += 1
                 goal_handle.publish_feedback(
@@ -471,7 +477,13 @@ def main(args: Optional[list] = None) -> None:
     """Spin the inference node on a multi-threaded executor."""
     rclpy.init(args=args)
     node = VlaInferenceNode()
-    executor = MultiThreadedExecutor()
+    # Capped deliberately. MultiThreadedExecutor defaults to one thread per
+    # CPU, and on a 24-core host those threads spin in rclpy's Python-level
+    # wait loop and contend for the GIL. Measured against the simulator, that
+    # stretched an inference call from about 75 ms to between one and two
+    # seconds, which in turn made every trajectory too stale for the executor
+    # to accept. The node needs one thread per callback group, not per core.
+    executor = MultiThreadedExecutor(num_threads=4)
     executor.add_node(node)
 
     def _on_terminate(signum, frame):

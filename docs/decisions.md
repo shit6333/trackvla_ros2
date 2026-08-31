@@ -269,22 +269,45 @@ model runs, and which has been run on a robot.
 base, only how far along it the command keeps changing. Its test was rewritten
 to measure the speeds commanded rather than the time spent moving.
 
-## D021 — Simulation runs at real time, and `use_sim_time` stays off
+## D021 — Against the simulator, `use_sim_time` stays off and the absolute staleness checks are disabled instead
 
-The world pins `real_time_factor` to 1.0 and nothing enables `use_sim_time`.
+The world pins `real_time_factor` to 1.0 and the nodes keep running on the
+wall clock. `sim/config/tracking_sim.yaml` sets `max_image_age` and
+`max_trajectory_age` to zero.
 
-Both runtime nodes mix two clocks. `trajectory_executor_node` times a plan and
-its timeout with `time.monotonic()` while publishing from a ROS timer, and
-`vla_inference_node` paces its loop with `time.monotonic()` while checking
-image age against the ROS clock. Those agree only while simulation time
-tracks wall time.
+The problem `use_sim_time` would solve is real: Gazebo stamps its messages
+with simulation time, which starts at zero, so a node on the wall clock reads
+every frame as an epoch old and both staleness checks drop everything. The
+first attempt at this acceptance run failed exactly that way, with the
+pipeline never inferring at all.
 
-Enabling `use_sim_time` today would therefore not speed anything up safely: the
-publish timers would follow simulation time while the timeouts stayed on the
-wall clock, so `trajectory_timeout` would fire at the wrong simulated moment
-and a plan would advance through its segments at a rate unrelated to the
-commands being sent. Running faster than real time requires converting both
-nodes to the ROS clock first, which is deferred work rather than a setting.
+Enabling it was measured and rejected. Gazebo publishes `/clock` once per
+physics step, and handling that traffic in rclpy is far more expensive than
+its volume suggests:
+
+| `/clock` rate | physics step | inference |
+| --- | --- | --- |
+| 967 Hz | 1 ms | 893 to 1603 ms |
+| 250 Hz | 4 ms | 118 to 365 ms |
+| off | any | 47 to 64 ms |
+
+At 1 ms the pipeline ran roughly twenty times slower, which then made every
+trajectory older than `max_trajectory_age` by the time it was published, so
+the executor refused all of them. The whole failure looked like a broken
+model and was a clock subscription.
+
+Disabling the two checks loses the ability to notice an upstream that keeps
+publishing a frozen frame. It keeps `trajectory_timeout`, which measures time
+since the last accepted trajectory, needs no agreement between clocks, and is
+the guard that actually stops the robot; that was confirmed to fire in
+simulation.
+
+A separate concern remains for running faster than real time. Both nodes mix
+clocks, timing plans with `time.monotonic()` while publishing from ROS timers.
+Every such use is a difference rather than an absolute, so they agree at a
+real-time factor of 1.0 and only there. Faster-than-real-time runs need both
+nodes converted to the ROS clock, and would then also need the `/clock` cost
+above solved.
 
 ## D022 — The simulator lives in its own container
 

@@ -48,6 +48,9 @@ def _setup(context, *args, **kwargs):
     enable_monitor = _as_bool(
         LaunchConfiguration('enable_collision_monitor').perform(context)
     )
+    use_sim_time = _as_bool(
+        LaunchConfiguration('use_sim_time').perform(context)
+    )
 
     plan = plan_cmd_vel_chain(enable_smoother, enable_monitor)
 
@@ -68,7 +71,11 @@ def _setup(context, *args, **kwargs):
             emulate_tty=True,
             parameters=[
                 params_file,
-                {'backend': backend, 'image_topic': image_topic},
+                {
+                    'backend': backend,
+                    'image_topic': image_topic,
+                    'use_sim_time': use_sim_time,
+                },
             ],
         ),
         Node(
@@ -77,7 +84,7 @@ def _setup(context, *args, **kwargs):
             name='trajectory_executor_node',
             output='screen',
             emulate_tty=True,
-            parameters=[params_file],
+            parameters=[params_file, {'use_sim_time': use_sim_time}],
             # With the chain bypassed this resolves to itself, so the executor
             # publishes the final topic directly rather than through a no-op
             # stage.
@@ -162,6 +169,17 @@ def generate_launch_description() -> LaunchDescription:
             'image_topic',
             default_value='/camera/image_raw',
             description='Monocular RGB input.',
+        ),
+        DeclareLaunchArgument(
+            'use_sim_time',
+            default_value='false',
+            description=(
+                'Follow /clock instead of the wall clock. Required against a '
+                'simulator, whose message stamps start at zero: with the wall '
+                'clock every frame reads as an epoch old and the staleness '
+                'checks drop all of them. Only valid while the simulator runs '
+                'at a real-time factor of 1.0; see D021.'
+            ),
         ),
         DeclareLaunchArgument(
             'enable_velocity_smoother',

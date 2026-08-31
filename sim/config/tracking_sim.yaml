@@ -1,0 +1,110 @@
+# Parameters for running against the Gazebo simulator.
+#
+# Identical to config/tracking.yaml except that the two staleness checks that
+# compare an absolute timestamp against "now" are disabled, because the
+# simulator's stamps are simulation time and start at zero while the nodes run
+# on the wall clock. Left enabled, every frame reads as an epoch old and the
+# pipeline never infers at all.
+#
+# The obvious alternative, use_sim_time, was measured and rejected. Gazebo
+# publishes /clock once per physics step, and handling that traffic in rclpy
+# costs far more than it sounds:
+#
+#     /clock 967 Hz (1 ms step)   inference 893-1603 ms
+#     /clock 250 Hz (4 ms step)   inference  118- 365 ms
+#     use_sim_time off            inference   47-  64 ms
+#
+# At 1 ms the pipeline was 20x slower and every trajectory arrived too stale
+# for the executor to accept, which looked exactly like a broken model.
+#
+# What is lost by disabling these two checks is the ability to notice an
+# upstream that keeps publishing a frozen frame. What is kept is
+# trajectory_timeout, which measures time since the last accepted trajectory,
+# needs no clock agreement, and is the guard that actually stops the robot.
+# See D021.
+
+# Core parameters for the tracking pipeline.
+#
+# Override individual values on the command line, for example:
+#   ros2 launch vla_tracking tracking.launch.py backend:=omtrackvla
+
+vla_inference_node:
+  ros__parameters:
+    # Entry point name from the vla_tracking.backends group.
+    #   fake       - deterministic, no weights, for bring-up and tests
+    #   omtrackvla - the released 0.6B checkpoint, needs CUDA
+    backend: fake
+
+    image_topic: /camera/image_raw
+    base_frame: base_link
+
+    # The checkpoint was trained on frames 0.1 s apart, and its history
+    # carries explicit time indices, so the sampling cadence is a property the
+    # model learned rather than a free parameter. Measured inference is 46.6 ms
+    # in-pipeline, so a higher rate is achievable but has not been shown to
+    # help.
+    inference_rate: 10.0
+
+    # Frames older than this are skipped. Zero disables the check.
+    max_image_age: 0.0
+
+    status_rate: 5.0
+
+    # Empty falls back to HF_MODEL_DIR and OMTRACKVLA_SRC, which the container
+    # sets. No developer path is baked in.
+    model_dir: ''
+    source_path: ''
+
+    require_cuda: true
+
+    # Zero keeps the backend's own default. For OmTrackVLA that is 31, the
+    # value train.py and make_tracking_data.py were run with. The checkpoint
+    # does not record it, so nothing validates an override.
+    history_length: 0
+
+trajectory_executor_node:
+  ros__parameters:
+    # How many predicted waypoints one prediction may drive. One matches the
+    # released evaluator, which uses tau[0, 1] and then re-infers.
+    waypoints_to_execute: 1
+
+    # Stop if no trajectory has been accepted within this many seconds. Needs
+    # no clock agreement with the camera; this is the guard that stops the base
+    # when the upstream dies, and the only thing that ends a plan nothing has
+    # preempted. A plan holds its last segment until then, so this also bounds
+    # how long a dead upstream leaves the base moving: at full speed it is
+    # trajectory_timeout * max_linear_velocity metres.
+    trajectory_timeout: 0.3
+
+    command_rate: 20.0
+
+    # The robot's full speed, per axis. These are the conversion factors, not
+    # a ceiling: the model reports a fraction of full speed, so a prediction
+    # of 0.49 forward commands 0.49 * max_linear_velocity. Each axis carries
+    # its own value because the model normalizes each one separately.
+    #
+    # WARNING: not validated against any robot. Set them from the target
+    # platform's real capability before any experiment whose results depend on
+    # speed, because they now decide how fast the robot moves rather than only
+    # where it is cut off.
+    max_linear_velocity: 0.2
+    max_lateral_velocity: 0.2
+    max_angular_velocity: 0.5
+
+    base_frame: base_link
+
+    # Reject predictions the backend marked invalid, which includes every
+    # warm-up prediction.
+    require_valid: true
+
+    # Reject a trajectory whose observation is older than this. Catches an
+    # upstream that keeps publishing a frozen frame, which the timeout above
+    # cannot see. Requires the camera clock to agree with this node's; set to
+    # zero if it does not.
+    max_trajectory_age: 0.0
+
+    # preserve - publish linear.y as predicted, matching the holonomic
+    #            simulator agent the checkpoint was evaluated on
+    # drop     - zero it for a base that cannot move sideways, logging how
+    #            much was discarded
+    lateral_policy: preserve
