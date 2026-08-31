@@ -1,0 +1,167 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="test_robot">
+    <pose>0 0 0.1 0 0 0</pose>
+
+    <!-- Chassis -->
+    <link name="base_link">
+      <inertial>
+        <mass>5.0</mass>
+        <inertia>
+          <ixx>0.05</ixx><iyy>0.08</iyy><izz>0.10</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <collision name="chassis_collision">
+        <geometry><box><size>0.4 0.3 0.15</size></box></geometry>
+      </collision>
+      <visual name="chassis_visual">
+        <geometry><box><size>0.4 0.3 0.15</size></box></geometry>
+        <material>
+          <ambient>0.2 0.3 0.5 1</ambient>
+          <diffuse>0.25 0.4 0.7 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- The model's input. 640x480 at 90 degrees horizontal is a
+           placeholder: it is not aligned with the checkpoint's training
+           camera, which is a separate experiment. -->
+      <sensor name="front_camera" type="camera">
+        <pose>0.21 0 0.08 0 0 0</pose>
+        <camera>
+          <horizontal_fov>1.5708</horizontal_fov>
+          <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+          <clip><near>0.05</near><far>50</far></clip>
+        </camera>
+        <always_on>1</always_on>
+        <update_rate>30</update_rate>
+        <visualize>false</visualize>
+        <topic>/front_camera</topic>
+      </sensor>
+    </link>
+
+    <!-- Chase camera. Rigidly attached behind and above the chassis, which
+         gives a following third-person view with no GUI and no operator: the
+         renderer runs headless and the frames are written straight to a file.
+         Placed 1.1 m back and 0.75 m up, pitched down 30 degrees, which puts
+         the robot just below the centre of frame and leaves the ground ahead
+         of it visible. -->
+    <link name="chase_camera_link">
+      <pose>-1.1 0 0.75 0 0.52 0</pose>
+      <inertial>
+        <mass>0.01</mass>
+        <inertia>
+          <ixx>1e-5</ixx><iyy>1e-5</iyy><izz>1e-5</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <sensor name="chase_camera" type="camera">
+        <camera>
+          <horizontal_fov>1.4</horizontal_fov>
+          <image><width>960</width><height>540</height><format>R8G8B8</format></image>
+          <clip><near>0.1</near><far>100</far></clip>
+        </camera>
+        <always_on>1</always_on>
+        <update_rate>20</update_rate>
+        <visualize>false</visualize>
+        <topic>/chase_camera</topic>
+      </sensor>
+    </link>
+    <joint name="chase_camera_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>chase_camera_link</child>
+    </joint>
+
+    <!-- Wheels -->
+    <link name="left_wheel">
+      <pose>0 0.17 -0.03 -1.5708 0 0</pose>
+      <inertial>
+        <mass>0.5</mass>
+        <inertia>
+          <ixx>0.001</ixx><iyy>0.001</iyy><izz>0.001</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <collision name="left_wheel_collision">
+        <geometry><cylinder><radius>0.07</radius><length>0.04</length></cylinder></geometry>
+        <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+      </collision>
+      <visual name="left_wheel_visual">
+        <geometry><cylinder><radius>0.07</radius><length>0.04</length></cylinder></geometry>
+        <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="left_wheel_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>left_wheel</child>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+    </joint>
+
+    <link name="right_wheel">
+      <pose>0 -0.17 -0.03 -1.5708 0 0</pose>
+      <inertial>
+        <mass>0.5</mass>
+        <inertia>
+          <ixx>0.001</ixx><iyy>0.001</iyy><izz>0.001</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <collision name="right_wheel_collision">
+        <geometry><cylinder><radius>0.07</radius><length>0.04</length></cylinder></geometry>
+        <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+      </collision>
+      <visual name="right_wheel_visual">
+        <geometry><cylinder><radius>0.07</radius><length>0.04</length></cylinder></geometry>
+        <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="right_wheel_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>right_wheel</child>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+    </joint>
+
+    <!-- Free-spinning support so the chassis does not tip. -->
+    <link name="caster">
+      <pose>-0.15 0 -0.06 0 0 0</pose>
+      <inertial>
+        <mass>0.1</mass>
+        <inertia>
+          <ixx>1e-4</ixx><iyy>1e-4</iyy><izz>1e-4</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <collision name="caster_collision">
+        <geometry><sphere><radius>0.04</radius></sphere></geometry>
+        <surface><friction><ode><mu>0.0</mu><mu2>0.0</mu2></ode></friction></surface>
+      </collision>
+      <visual name="caster_visual">
+        <geometry><sphere><radius>0.04</radius></sphere></geometry>
+      </visual>
+    </link>
+    <joint name="caster_joint" type="ball">
+      <parent>base_link</parent>
+      <child>caster</child>
+    </joint>
+
+    <!-- The base's full speed is 0.5 m/s, matching max_linear_velocity in
+         config/tracking.yaml. After D019 that parameter is the robot's full
+         speed rather than a cap, so the two must agree or a normalized
+         command of 1.0 would mean different things on each side. -->
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+      <wheel_separation>0.34</wheel_separation>
+      <wheel_radius>0.07</wheel_radius>
+      <max_linear_velocity>0.5</max_linear_velocity>
+      <max_angular_velocity>1.5</max_angular_velocity>
+      <max_linear_acceleration>1.0</max_linear_acceleration>
+      <max_angular_acceleration>3.0</max_angular_acceleration>
+      <topic>/model/test_robot/cmd_vel</topic>
+      <odom_topic>/model/test_robot/odometry</odom_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <odom_publish_frequency>30</odom_publish_frequency>
+    </plugin>
+  </model>
+</sdf>

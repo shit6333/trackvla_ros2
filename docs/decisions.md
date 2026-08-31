@@ -268,3 +268,37 @@ model runs, and which has been run on a robot.
 `waypoints_to_execute` no longer bounds how long one prediction drives the
 base, only how far along it the command keeps changing. Its test was rewritten
 to measure the speeds commanded rather than the time spent moving.
+
+## D021 — Simulation runs at real time, and `use_sim_time` stays off
+
+The world pins `real_time_factor` to 1.0 and nothing enables `use_sim_time`.
+
+Both runtime nodes mix two clocks. `trajectory_executor_node` times a plan and
+its timeout with `time.monotonic()` while publishing from a ROS timer, and
+`vla_inference_node` paces its loop with `time.monotonic()` while checking
+image age against the ROS clock. Those agree only while simulation time
+tracks wall time.
+
+Enabling `use_sim_time` today would therefore not speed anything up safely: the
+publish timers would follow simulation time while the timeouts stayed on the
+wall clock, so `trajectory_timeout` would fire at the wrong simulated moment
+and a plan would advance through its segments at a rate unrelated to the
+commands being sent. Running faster than real time requires converting both
+nodes to the ROS clock first, which is deferred work rather than a setting.
+
+## D022 — The simulator lives in its own container
+
+Gazebo Harmonic runs in `trackvla-gazebo:harmonic`, built from
+`ros:jazzy-ros-base`, separate from the CUDA inference image.
+
+Both containers use host networking, so they already share a DDS domain and
+separation costs nothing at runtime. Sharing would cost a great deal at build
+time: the inference image is 33 GB and any Dockerfile change invalidates the
+PyTorch layers, so iterating on a world file would mean rebuilding CUDA. It
+would also contradict `docs/environment.md`, which excludes simulation from
+the inference image.
+
+Gazebo is installed from the ROS apt repository, where
+`ros-jazzy-gz-sim-vendor` bundles gz-sim 8.11.0, which is Harmonic. The
+`packages.osrfoundation.org` repository is deliberately not added: it would
+put a second Gazebo source on the system and invite a version conflict.

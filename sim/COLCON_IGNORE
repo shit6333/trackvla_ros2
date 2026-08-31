@@ -1,0 +1,2 @@
+# The simulation assets are not a colcon package. Building them inside the
+# inference workspace would drag Gazebo into that image through rosdep.

@@ -1,0 +1,43 @@
+# ros_gz_bridge configuration.
+#
+# Only the topics the pipeline actually needs are bridged. Every bridged topic
+# costs a serialization round trip, and the world publishes a lot that nothing
+# here consumes.
+
+# The model's input.
+- ros_topic_name: "/camera/image_raw"
+  gz_topic_name: "/front_camera"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# The chase camera, recorded to a file because there is no display to attach.
+- ros_topic_name: "/sim/third_person/image_raw"
+  gz_topic_name: "/chase_camera"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# The only topic that flows the other way.
+- ros_topic_name: "/cmd_vel"
+  gz_topic_name: "/model/test_robot/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+# Odometry is what makes "the robot moved" checkable. Without it a test can
+# only confirm that a command was published, not that anything happened.
+- ros_topic_name: "/odom"
+  gz_topic_name: "/model/test_robot/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+# Bridged for observability. The runtime nodes deliberately do not run on it:
+# their plan timing uses the wall clock, so simulation is pinned to real time
+# instead. See D021.
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
