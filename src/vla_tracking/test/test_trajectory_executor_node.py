@@ -72,23 +72,37 @@ class Harness:
             VlaTrajectory, 'vla/trajectory', 1
         )
 
-        self.executor = MultiThreadedExecutor(context=self.context)
-        self.executor.add_node(self.node)
-        self.executor.add_node(self.peer)
+        self._executors = []
+        self._threads = []
+        for node in (self.node, self.peer):
+            # Capped deliberately: the default is one thread per CPU,
+            # so two nodes opened 48 for a handful of callbacks and
+            # the contention showed up as scheduling stalls long
+            # enough to skip an entire trajectory segment.
+            executor = MultiThreadedExecutor(
+                num_threads=4, context=self.context
+            )
+            executor.add_node(node)
+            self._executors.append(executor)
         self._stop = threading.Event()
-        self._thread = threading.Thread(target=self._spin, daemon=True)
-        self._thread.start()
+        for executor in self._executors:
+            thread = threading.Thread(
+                target=self._spin, args=(executor,), daemon=True
+            )
+            thread.start()
+            self._threads.append(thread)
 
-    def _spin(self):
+    def _spin(self, executor):
         """
-        Spin on the executor's own thread pool.
+        Spin one executor until it is shut down.
 
-        A hand-rolled spin_once loop services every callback from one thread,
-        which lets subscription queues drain far behind real time and makes
-        any timing assertion measure the harness rather than the node.
+        Each node gets its own executor. Sharing one between a node that
+        publishes on a timer and a node that observes it starves the observer:
+        measured against a 50 Hz publisher, a shared executor delivered 3.5 Hz
+        while separate ones delivered the full 50.
         """
         try:
-            self.executor.spin()
+            executor.spin()
         except Exception:
             pass
 
@@ -110,11 +124,23 @@ class Harness:
     def shutdown(self):
         """Tear the harness down."""
         self._stop.set()
-        self.executor.shutdown()
-        self._thread.join(timeout=5.0)
+        for executor in self._executors:
+            executor.shutdown()
+        for thread in self._threads:
+            thread.join(timeout=5.0)
         self.node.destroy_node()
         self.peer.destroy_node()
         rclpy.shutdown(context=self.context)
+
+
+def _wait_until(predicate, timeout, description):
+    """Poll until a predicate holds, failing with a readable message."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.02)
+    raise AssertionError(f'timed out after {timeout:.1f}s waiting for {description}')
 
 
 def make_trajectory(
@@ -173,56 +199,79 @@ def test_a_valid_trajectory_produces_the_expected_velocity(harness):
 
 #: Steps of 0.01, 0.02 and 0.03, so each segment commands its own speed and
 #: which of them were executed can be read straight off the commands.
+# Segment durations equal dt, so a longer dt is what keeps a scheduling stall
+# from swallowing a whole segment and reporting a waypoint as never executed.
+# The steps scale with it, so the three commanded speeds stay 0.02, 0.04 and
+# 0.06 m/s.
+SLOW_DT = 0.3
 UNEQUAL_STEPS = [
     Waypoint2D(x=0.0, y=0.0, theta=0.0),
-    Waypoint2D(x=0.01, y=0.0, theta=0.0),
     Waypoint2D(x=0.03, y=0.0, theta=0.0),
-    Waypoint2D(x=0.06, y=0.0, theta=0.0),
+    Waypoint2D(x=0.09, y=0.0, theta=0.0),
+    Waypoint2D(x=0.18, y=0.0, theta=0.0),
 ]
 
-
-def _speeds_commanded(running, settle=0.6):
-    """Publish one trajectory and report the distinct speeds it produced."""
-    running.wait_for_commands(2)
-    baseline = len(running.commands)
-    running.publish(waypoints=UNEQUAL_STEPS)
-    time.sleep(settle)
-    return {
-        round(command.linear.x, 6)
-        for command in running.commands[baseline:]
-        if not is_zero(command)
-    }
+#: Must outlast the three segments so the plan is not timed out mid-way.
+SLOW_TIMEOUT = 2.0
 
 
-def test_only_the_requested_number_of_waypoints_is_executed(harness):
+def test_only_the_requested_number_of_waypoints_is_executed():
     """
     Check waypoints_to_execute bounds how much of a prediction is followed.
 
-    The trajectory's three segments each command a different speed, so the
-    speeds that appear say exactly which waypoints were executed. Duration
-    cannot answer that any more: a plan holds its last segment until it is
-    preempted or times out, so both configurations drive the base for the
-    same length of time and differ only in how far along the prediction they
-    get before the command stops changing.
+    Two assertions, because neither alone is both direct and robust. The
+    segment count is what the parameter actually controls and is checked
+    exactly. The commanded speeds are then checked as a subset of what the
+    requested waypoints allow, which catches a node that ignored the
+    parameter without requiring that every segment be observed: observation
+    rate collapses under machine load, and a missed sample must not read as a
+    product defect.
+
+    Each configuration runs in its own harness, one after the other. rclpy's
+    Context isolates the client library but not the DDS domain, so two
+    harnesses alive at once publish and subscribe to each other's topics.
     """
-    one = _speeds_commanded(harness)
-    assert one == {pytest.approx(0.02)}, (
-        f'executing one waypoint should only ever command 0.02 m/s, saw {one}'
-    )
+    for requested, allowed in ((1, {0.02}), (3, {0.02, 0.04, 0.06})):
+        running = Harness(overrides=[
+            Parameter('waypoints_to_execute', value=requested),
+            Parameter('trajectory_timeout', value=SLOW_TIMEOUT),
+        ])
+        try:
+            running.wait_for_commands(2)
+            baseline = len(running.commands)
+            running.publish(waypoints=UNEQUAL_STEPS, dt=SLOW_DT)
 
-    three = Harness(
-        overrides=[Parameter('waypoints_to_execute', value=3)]
-    )
-    try:
-        seen = _speeds_commanded(three)
-    finally:
-        three.shutdown()
+            _wait_until(
+                lambda: running.node.plan_segment_count > 0,
+                5.0,
+                'the trajectory to be accepted',
+            )
+            assert running.node.plan_segment_count == requested, (
+                f'asked for {requested} waypoints, the plan holds '
+                f'{running.node.plan_segment_count}'
+            )
 
-    for expected in (0.02, 0.04, 0.06):
-        assert any(speed == pytest.approx(expected) for speed in seen), (
-            f'executing three waypoints never commanded {expected} m/s; '
-            f'saw {sorted(seen)}'
-        )
+            _wait_until(
+                lambda: any(
+                    not is_zero(c) for c in running.commands[baseline:]
+                ),
+                5.0,
+                'the base to start moving',
+            )
+            time.sleep(0.5)
+
+            observed = {
+                round(command.linear.x, 6)
+                for command in running.commands[baseline:]
+                if not is_zero(command)
+            }
+            assert observed, 'no motion was commanded'
+            assert observed <= allowed, (
+                f'executing {requested} waypoint(s) commanded {sorted(observed)}, '
+                f'which is outside {sorted(allowed)}'
+            )
+        finally:
+            running.shutdown()
 
 
 def test_silence_upstream_returns_to_zero(harness):
@@ -242,16 +291,26 @@ def test_silence_upstream_returns_to_zero(harness):
             Waypoint2D(x=0.02, y=0.0, theta=0.0),
         ]
     )
-    time.sleep(TIMEOUT + 0.3)
+    # Waiting for a zero to appear rather than sampling the command received
+    # at some fixed instant. The harness now keeps up with the publisher, but
+    # an assertion on "the last message right now" still depends on delivery
+    # landing before the sleep ends, whereas waiting for the state to be
+    # reached does not.
+    _wait_until(
+        lambda: any(not is_zero(c) for c in harness.commands[baseline:]),
+        5.0,
+        'the base to start moving, without which this proves nothing',
+    )
+    moved = len(harness.commands)
 
-    during = harness.commands[baseline:]
-    assert any(not is_zero(command) for command in during), \
-        'the base never moved, so this proves nothing about the timeout'
-    assert is_zero(harness.commands[-1]), \
-        'a command was still latched after the timeout'
+    _wait_until(
+        lambda: any(is_zero(c) for c in harness.commands[moved:]),
+        TIMEOUT + 2.0,
+        'the timeout to command zero',
+    )
 
 
-def test_a_late_prediction_does_not_interrupt_the_command(harness):
+def test_a_late_prediction_does_not_interrupt_the_command():
     """
     Check a plan holds rather than stopping between predictions.
 
@@ -260,21 +319,33 @@ def test_a_late_prediction_does_not_interrupt_the_command(harness):
     time varies. A plan that stopped when its durations ran out commanded a
     full stop in the interval before the next prediction landed. Here every
     prediction is deliberately later than the segment it replaces.
-    """
-    harness.wait_for_commands(2)
-    baseline = len(harness.commands)
-    for _ in range(5):
-        harness.publish(
-            waypoints=[
-                Waypoint2D(x=0.0, y=0.0, theta=0.0),
-                Waypoint2D(x=0.02, y=0.0, theta=0.0),
-            ]
-        )
-        # dt is 0.1, so each prediction arrives 0.03 s after the segment it
-        # replaces ran out, and well inside trajectory_timeout.
-        time.sleep(0.13)
 
-    during = harness.commands[baseline:]
+    A generous trajectory_timeout is used rather than the fixture's. The
+    interval between predictions is produced by sleeping in this thread, and
+    under load that sleep can overshoot; with a tight timeout the executor
+    would then stop for the correct reason and the test would report it as a
+    plan expiring early.
+    """
+    harness = Harness(
+        overrides=[Parameter('trajectory_timeout', value=SLOW_TIMEOUT)]
+    )
+    try:
+        harness.wait_for_commands(2)
+        baseline = len(harness.commands)
+        for _ in range(5):
+            harness.publish(
+                waypoints=[
+                    Waypoint2D(x=0.0, y=0.0, theta=0.0),
+                    Waypoint2D(x=0.02, y=0.0, theta=0.0),
+                ]
+            )
+            # dt is 0.1, so each prediction arrives 0.03 s after the segment
+            # it replaces ran out, and far inside trajectory_timeout.
+            time.sleep(0.13)
+
+        during = harness.commands[baseline:]
+    finally:
+        harness.shutdown()
     moving = [index for index, c in enumerate(during) if not is_zero(c)]
     assert moving, 'the base never moved'
     stalled = [

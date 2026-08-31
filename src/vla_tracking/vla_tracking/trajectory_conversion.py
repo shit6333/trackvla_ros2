@@ -4,9 +4,14 @@ Conversion of predicted poses into timed base-velocity segments.
 The waypoints a backend predicts are not metres. OmTrackVLA was trained on
 normalized base commands, integrated into a path with a fixed constant, so a
 waypoint carries "fraction of full speed, times that constant". Dividing by
-`dt` therefore recovers the normalized command the model asked for, bounded to
-[-1, 1] by the planner's output activation; it is the exact inverse of the
-integration that built the training labels, not a physical distance over time.
+`dt` therefore recovers the normalized command the model asked for; it is the
+exact inverse of the integration that built the training labels, not a
+physical distance over time.
+
+The recovered command is not bounded by the network. Habitat is what bounded
+it, clipping to [-1, 1] before scaling each axis by its speed constant, so
+`scale_segment` followed by `clamp_segment` reproduces that pair rather than
+merely guarding it. See D019.
 Turning that into metres per second is a second, separate step that belongs to
 the robot rather than to the model: see `scale_segment`.
 

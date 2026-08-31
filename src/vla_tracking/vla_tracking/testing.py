@@ -62,43 +62,61 @@ class SpinningGraph:
     Own an isolated ROS context and spin the nodes added to it.
 
     Every harness uses its own context so tests cannot disturb one another,
-    and spinning goes through the executor's own thread pool: a hand-rolled
-    spin_once loop services all callbacks from one thread, which lets
-    subscription queues drain behind real time and makes timing assertions
-    measure the harness instead of the node.
+    and every node gets its own executor and thread.
+
+    That last part is not a style choice. Sharing one executor between a node
+    that publishes on a timer and a node that observes it starves the
+    observer: measured against a 50 Hz publisher, a shared executor delivered
+    3.5 Hz while separate ones delivered the full 50. A test built on the
+    shared arrangement measures the harness rather than the node, and does so
+    intermittently, which reads as a flaky product rather than a flaky test.
     """
 
     def __init__(self):
         """Create and initialise an isolated context."""
         self.context = Context()
         rclpy.init(context=self.context)
-        self.executor = MultiThreadedExecutor(context=self.context)
         self._nodes: List[Node] = []
-        self._thread: Optional[threading.Thread] = None
+        self._executors: List[MultiThreadedExecutor] = []
+        self._threads: List[threading.Thread] = []
 
     def add(self, node: Node) -> Node:
-        """Register a node to be spun and torn down with the graph."""
+        """Register a node, giving it an executor of its own."""
+        # Capped deliberately: the default is one thread per CPU,
+        # so two nodes opened 48 for a handful of callbacks and
+        # the contention showed up as scheduling stalls long
+        # enough to skip an entire trajectory segment.
+        executor = MultiThreadedExecutor(
+            num_threads=4, context=self.context
+        )
+        executor.add_node(node)
         self._nodes.append(node)
-        self.executor.add_node(node)
+        self._executors.append(executor)
         return node
 
     def start(self) -> None:
-        """Begin spinning on a background thread."""
-        self._thread = threading.Thread(target=self._spin, daemon=True)
-        self._thread.start()
+        """Begin spinning every node on its own background thread."""
+        for executor in self._executors:
+            thread = threading.Thread(
+                target=self._spin, args=(executor,), daemon=True
+            )
+            thread.start()
+            self._threads.append(thread)
 
-    def _spin(self) -> None:
-        """Spin until the executor is shut down."""
+    @staticmethod
+    def _spin(executor: MultiThreadedExecutor) -> None:
+        """Spin one executor until it is shut down."""
         try:
-            self.executor.spin()
+            executor.spin()
         except Exception:
             pass
 
     def shutdown(self) -> None:
         """Stop spinning and destroy every node, tolerating partial setup."""
-        self.executor.shutdown()
-        if self._thread is not None:
-            self._thread.join(timeout=5.0)
+        for executor in self._executors:
+            executor.shutdown()
+        for thread in self._threads:
+            thread.join(timeout=5.0)
         for node in reversed(self._nodes):
             try:
                 node.destroy_node()

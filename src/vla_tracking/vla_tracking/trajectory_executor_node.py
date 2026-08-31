@@ -209,8 +209,11 @@ class TrajectoryExecutorNode(Node):
             self._command_publisher.publish(Twist())
             return
 
-        # The segment is a fraction of full speed, so scaling is the actual
-        # conversion and the clamp behind it is only a fuse.
+        # The segment is a fraction of full speed. Scaling gives it a
+        # physical meaning and the clamp behind it is the other half of the
+        # same semantics, not a guard: together they are Habitat's own
+        # clip(v, -1, 1) * speed. This checkpoint has no output activation,
+        # so nothing upstream has already bounded the value. See D019.
         limited = clamp_segment(
             scale_segment(
                 segment,
@@ -269,6 +272,19 @@ class TrajectoryExecutorNode(Node):
             return segment
 
     # -- reporting ----------------------------------------------------------
+
+    @property
+    def plan_segment_count(self) -> int:
+        """
+        Return how many segments the active plan holds, zero when idle.
+
+        This is what `waypoints_to_execute` bounds. Exposed because inferring
+        it from the commands that reach a subscriber requires observing every
+        segment, and observation rate depends on machine load in a way the
+        node's behaviour does not.
+        """
+        with self._plan_lock:
+            return len(self._plan.segments) if self._plan is not None else 0
 
     @property
     def counters(self):

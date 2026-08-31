@@ -136,10 +136,18 @@ lossless and matches the behaviour the checkpoint was evaluated under.
 `lateral_policy: drop` zeroes it for a base that cannot move sideways, and
 logs how much lateral motion was discarded rather than silently swallowing it.
 
+The evaluation configuration settles that this default is the faithful one.
+`track_infer_*.yaml` configures agent 1 with `enable_lateral_move: True` and a
+`lateral_lin_speed` of its own, so the agent the checkpoint was trained and
+scored against could move sideways and the model learned to ask for it.
+`drop` therefore discards a degree of freedom the model actively uses; it is
+the right setting for a base that cannot move sideways, but it is a loss, not
+a neutral simplification.
+
 Folding lateral offset into steering is deliberately not implemented. It would
 be a control law, not a conversion, and the first executor is open loop by
-D003. The choice belongs with the target robot, which is not yet selected;
-until then neither default can be validated against hardware.
+D003. Whether a differential-drive base needs that recovery is the one part of
+this decision still waiting on a target robot.
 
 ## D016 — Staleness is checked two independent ways
 
@@ -190,8 +198,18 @@ OmTrackVLA predicts a fraction of full speed, not metres per second. It was
 trained on Habitat base commands, which that simulator clips to `[-1, 1]` and
 multiplies by a per-axis speed constant, and its training labels integrate
 those commands with a bookkeeping constant of `0.1`. Dividing a waypoint by
-`dt` inverts that integration and returns the command; the planner's output
-`tanh` bounds the result to `[-1, 1]`.
+`dt` inverts that integration and returns the command.
+
+Nothing bounds that command inside the network. This checkpoint sets
+`use_tanh_actions: false`, so `PlannerHead3L` applies no output activation,
+and `alpha_xy: 2.0` would put the x and y range at `[-2, 2]` even if it did.
+The bound comes from the environment instead: `BaseVelNonCylinderAction`
+applies `np.clip(v, -1, 1) * speed` per axis before moving the agent
+(`actions.py:704-709`), so every command the model ever saw executed was
+saturated at 1. Measured on the released checkpoint over synthetic
+out-of-distribution frames, the recovered command reached 4.4 on the forward
+axis, which is what an unbounded head does when the input is nothing it was
+trained on.
 
 The executor therefore multiplies by `max_linear_velocity` and its siblings
 rather than clamping to them. Those parameters are the robot's full speed per
@@ -205,9 +223,16 @@ every step and the executor became a bang-bang controller with a constant
 forward speed. Because the clamp is applied per axis it also changed the
 commanded direction, which scaling does not.
 
-The clamp is retained behind the conversion as a fuse. A prediction the
-planner bounded passes through it untouched, so it now catches only a backend
-that escapes its own bound and non-finite values from any source.
+The clamp behind the conversion is therefore not a fuse but the second half
+of the same semantics. Scaling by `max_linear_velocity` and then clamping to
+it is algebraically `clip(v, -1, 1) * max_linear_velocity`, which is exactly
+what Habitat does to the command before it moves anything. Adding a `tanh` at
+inference instead would be wrong: this checkpoint was never trained through
+one, so it would distort values the model has no reason to expect distorted.
+
+What remains unmeasured is how often the clamp engages on in-distribution
+imagery. The 4.4 figure comes from noise frames, so it bounds what the model
+can emit, not what it typically emits while actually tracking someone.
 
 ## D020 — A plan holds its last segment instead of expiring
 
