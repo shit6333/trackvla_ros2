@@ -61,6 +61,305 @@
     <!-- Something to look at, so the recorded video shows whether the robot
          is actually moving relative to the world rather than shaking in
          place. -->
+    <!-- Landmark posts on a 4 m grid.
+         The chase camera is rigidly attached to the robot, so the robot never
+         moves within its own frame; the only cue that anything is happening
+         is the background. Against a bare ground plane there is none, and a
+         recording of a robot creeping at 0.04 m/s looks identical to a
+         recording of a robot standing still. These give the eye something to
+         measure against. They are static and thin, so they cost almost
+         nothing to simulate. -->
+    <model name="post_0_0">
+      <static>true</static>
+      <pose>-4 -8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_0_1">
+      <static>true</static>
+      <pose>-4 -4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_0_2">
+      <static>true</static>
+      <pose>-4 0 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_0_3">
+      <static>true</static>
+      <pose>-4 4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_0_4">
+      <static>true</static>
+      <pose>-4 8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_1_0">
+      <static>true</static>
+      <pose>0 -8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_1_1">
+      <static>true</static>
+      <pose>0 -4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_1_3">
+      <static>true</static>
+      <pose>0 4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_1_4">
+      <static>true</static>
+      <pose>0 8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_2_0">
+      <static>true</static>
+      <pose>4 -8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_2_1">
+      <static>true</static>
+      <pose>4 -4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_2_2">
+      <static>true</static>
+      <pose>4 0 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_2_3">
+      <static>true</static>
+      <pose>4 4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_2_4">
+      <static>true</static>
+      <pose>4 8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_3_0">
+      <static>true</static>
+      <pose>8 -8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_3_1">
+      <static>true</static>
+      <pose>8 -4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_3_2">
+      <static>true</static>
+      <pose>8 0 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_3_3">
+      <static>true</static>
+      <pose>8 4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_3_4">
+      <static>true</static>
+      <pose>8 8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_4_0">
+      <static>true</static>
+      <pose>12 -8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_4_1">
+      <static>true</static>
+      <pose>12 -4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_4_2">
+      <static>true</static>
+      <pose>12 0 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_4_3">
+      <static>true</static>
+      <pose>12 4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_4_4">
+      <static>true</static>
+      <pose>12 8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_5_0">
+      <static>true</static>
+      <pose>16 -8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_5_1">
+      <static>true</static>
+      <pose>16 -4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_5_2">
+      <static>true</static>
+      <pose>16 0 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_5_3">
+      <static>true</static>
+      <pose>16 4 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="post_5_4">
+      <static>true</static>
+      <pose>16 8 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
     <!-- People rather than boxes.
          The checkpoint was trained to follow humanoids, so a scene made of
          coloured boxes is further out of distribution than it needs to be.
