@@ -53,18 +53,24 @@ trajectory_executor_node:
 
     command_rate: 20.0
 
-    # The robot's full speed, per axis. These are the conversion factors, not
-    # a ceiling: the model reports a fraction of full speed, so a prediction
-    # of 0.49 forward commands 0.49 * max_linear_velocity. Each axis carries
-    # its own value because the model normalizes each one separately.
+    # Scales: normalized command to metres and radians per second. Derived
+    # from the checkpoint's training environment; see sim/config/tracking_sim.yaml
+    # and D019 for the arithmetic. These follow the model, not the robot.
+    linear_scale: 3.75
+    lateral_scale: 2.5
+    angular_scale: 1.57
+
+    # Limits: what the base can actually deliver, applied by scaling the whole
+    # command down so the turning radius the model asked for survives.
     #
-    # WARNING: not validated against any robot. Set them from the target
-    # platform's real capability before any experiment whose results depend on
-    # speed, because they now decide how fast the robot moves rather than only
-    # where it is cut off.
-    max_linear_velocity: 0.2
-    max_lateral_velocity: 0.2
-    max_angular_velocity: 0.5
+    # WARNING: not validated against any robot. These are the numbers to
+    # change when a platform is chosen, and the only ones. Note that no real
+    # base does 3.75 m/s, so a prediction near 1.0 will be limited here;
+    # whether the model's implied speeds are achievable at all is an open
+    # question.
+    max_linear_velocity: 1.0
+    max_lateral_velocity: 1.0
+    max_angular_velocity: 1.5
 
     base_frame: base_link
 

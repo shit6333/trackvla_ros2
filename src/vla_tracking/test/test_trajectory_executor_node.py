@@ -50,9 +50,16 @@ class Harness:
         parameters = [
             Parameter('command_rate', value=COMMAND_RATE),
             Parameter('trajectory_timeout', value=TIMEOUT),
-            Parameter('max_linear_velocity', value=0.2),
-            Parameter('max_lateral_velocity', value=0.2),
-            Parameter('max_angular_velocity', value=0.5),
+            # Unit scales, so an assertion reads directly as
+            # "waypoint difference over dt" without a conversion in the way.
+            # The scales are exercised separately in the conversion tests.
+            Parameter('linear_scale', value=1.0),
+            Parameter('lateral_scale', value=1.0),
+            Parameter('angular_scale', value=1.0),
+            # Clear of everything under test except test_velocity_limits.
+            Parameter('max_linear_velocity', value=1.0),
+            Parameter('max_lateral_velocity', value=1.0),
+            Parameter('max_angular_velocity', value=2.0),
             # The staleness check is exercised in the validation unit tests;
             # here it would only couple every case to wall-clock scheduling.
             Parameter('max_trajectory_age', value=0.0),
@@ -192,7 +199,7 @@ def test_a_valid_trajectory_produces_the_expected_velocity(harness):
 
     assert moving is not None, 'the executor never commanded motion'
     # 0.01 over dt = 0.1 is a tenth of full speed, and full speed is 0.2 m/s.
-    assert moving.linear.x == pytest.approx(0.02, abs=1e-6)
+    assert moving.linear.x == pytest.approx(0.1, abs=1e-6)
     assert moving.linear.y == pytest.approx(0.0, abs=1e-9)
     assert moving.angular.z == pytest.approx(0.0, abs=1e-9)
 
@@ -231,7 +238,7 @@ def test_only_the_requested_number_of_waypoints_is_executed():
     Context isolates the client library but not the DDS domain, so two
     harnesses alive at once publish and subscribe to each other's topics.
     """
-    for requested, allowed in ((1, {0.02}), (3, {0.02, 0.04, 0.06})):
+    for requested, allowed in ((1, {0.1}), (3, {0.1, 0.2, 0.3})):
         running = Harness(overrides=[
             Parameter('waypoints_to_execute', value=requested),
             Parameter('trajectory_timeout', value=SLOW_TIMEOUT),
@@ -411,7 +418,7 @@ def test_velocity_limits_are_enforced(harness):
         time.sleep(0.01)
 
     assert moving is not None
-    assert moving.linear.x == pytest.approx(0.2)
+    assert moving.linear.x == pytest.approx(1.0)
 
 
 def test_a_newer_trajectory_preempts_the_previous_one(harness):
@@ -436,11 +443,11 @@ def test_a_newer_trajectory_preempts_the_previous_one(harness):
     while time.monotonic() < deadline:
         if harness.commands and not is_zero(harness.commands[-1]):
             observed = harness.commands[-1].linear.x
-            if observed == pytest.approx(0.03, abs=1e-6):
+            if observed == pytest.approx(0.15, abs=1e-6):
                 break
         time.sleep(0.01)
 
-    assert observed == pytest.approx(0.03, abs=1e-6), \
+    assert observed == pytest.approx(0.15, abs=1e-6), \
         f'expected the newer prediction to take over, saw {observed}'
 
 

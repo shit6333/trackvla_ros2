@@ -8,12 +8,17 @@ waypoint carries "fraction of full speed, times that constant". Dividing by
 exact inverse of the integration that built the training labels, not a
 physical distance over time.
 
-The recovered command is not bounded by the network. Habitat is what bounded
-it, clipping to [-1, 1] before scaling each axis by its speed constant, so
-`scale_segment` followed by `clamp_segment` reproduces that pair rather than
-merely guarding it. See D019.
-Turning that into metres per second is a second, separate step that belongs to
-the robot rather than to the model: see `scale_segment`.
+The recovered command is not bounded by the network. This checkpoint has no
+output activation, and the [-1, 1] range it was trained against belonged to
+the simulator, which clipped commands before executing them rather than
+teaching the network not to produce them.
+
+Two separate steps follow. `scale_segment` converts to metres and radians per
+second using constants that belong to the checkpoint's training environment.
+`limit_segment` then brings the result inside what a particular robot can
+deliver, scaling the whole command by one factor so the turning radius
+survives. Keeping them apart is what lets a prediction above 1.0 be scaled
+rather than cut. See D019.
 
 Pure geometry with no ROS dependency, so the arithmetic that ultimately turns
 wheels can be tested exhaustively without a running graph.
@@ -111,59 +116,91 @@ def trajectory_to_segments(
 
 def scale_segment(
     segment: VelocitySegment,
-    max_linear: float,
-    max_lateral: float,
-    max_angular: float,
+    linear_scale: float,
+    lateral_scale: float,
+    angular_scale: float,
 ) -> VelocitySegment:
     """
     Turn a normalized segment into metres and radians per second.
 
-    The model reports a fraction of full speed, so the robot's full-speed
-    values are what give that fraction a physical meaning. Multiplying is the
-    whole conversion, and it is what keeps the limits out of the model's
-    operating range: a command the model actually asked for is reproduced at
-    the requested fraction rather than being cut down to a ceiling.
+    These scales are a property of the checkpoint's training environment, not
+    of the robot. They answer "how far did a command of 1.0 move the agent the
+    model learned from", and change only when the model does.
 
-    Each axis carries its own scale because the model normalizes each one
-    separately, so they cannot be folded into a single factor.
+    They are deliberately not the robot's limits. Conflating the two forces a
+    prediction above 1.0 to be cut rather than scaled, and nothing guarantees
+    the model stays below 1.0: this checkpoint has no output activation, and
+    the bound it was trained against belonged to the simulator, which clipped
+    commands before executing them rather than teaching the network not to
+    produce them.
     """
     return VelocitySegment(
-        linear_x=segment.linear_x * max_linear,
-        linear_y=segment.linear_y * max_lateral,
-        angular_z=segment.angular_z * max_angular,
+        linear_x=segment.linear_x * linear_scale,
+        linear_y=segment.linear_y * lateral_scale,
+        angular_z=segment.angular_z * angular_scale,
         duration=segment.duration,
     )
 
 
-def clamp_segment(
+def limiting_factor(
+    segment: VelocitySegment,
+    max_linear: float,
+    max_lateral: float,
+    max_angular: float,
+) -> float:
+    """
+    Return the factor that brings every axis inside the robot's limits.
+
+    One for a segment already within them, and zero for one carrying a
+    non-finite value, which must stop the base rather than propagate.
+    """
+    for value in (segment.linear_x, segment.linear_y, segment.angular_z):
+        if not math.isfinite(value):
+            return 0.0
+
+    factor = 1.0
+    for value, limit in (
+        (segment.linear_x, max_linear),
+        (segment.linear_y, max_lateral),
+        (segment.angular_z, max_angular),
+    ):
+        limit = abs(limit)
+        if limit > 0.0 and abs(value) > limit:
+            factor = min(factor, limit / abs(value))
+    return factor
+
+
+def limit_segment(
     segment: VelocitySegment,
     max_linear: float,
     max_lateral: float,
     max_angular: float,
 ) -> VelocitySegment:
     """
-    Apply hard actuator limits to an already scaled segment.
+    Bring a scaled segment inside the robot's limits, preserving its shape.
 
-    Applied after `scale_segment`, this is a fuse rather than an operating
-    condition: the planner bounds its own output, so a scaled command already
-    lies within these limits and passes through untouched. What is left for
-    this to catch is a backend that escapes that bound, and a non-finite value
-    from any source, neither of which may reach the wheels.
+    The whole command is scaled down by one factor rather than each axis being
+    clipped independently. Clipping one axis and not another changes the ratio
+    between linear and angular velocity, which is the turning radius, so the
+    robot follows an arc the model never asked for. Scaling keeps the arc and
+    only slows the traverse.
 
-    Note that the limit is applied per axis, so a segment that does engage it
-    comes out pointing somewhere the model did not ask for. That is acceptable
-    for a fuse and would not be acceptable for a routine speed cap.
+    The cost is that one saturating axis slows everything, which is the right
+    trade for a following task: arriving late on the intended path beats
+    arriving on time on a different one.
     """
+    factor = limiting_factor(segment, max_linear, max_lateral, max_angular)
+    if factor == 0.0:
+        # Written out rather than multiplied: nan * 0.0 is nan, so scaling a
+        # non-finite command by the zero factor would propagate it to the
+        # wheels instead of stopping them.
+        return VelocitySegment(
+            linear_x=0.0, linear_y=0.0, angular_z=0.0,
+            duration=segment.duration,
+        )
     return VelocitySegment(
-        linear_x=_clamp(segment.linear_x, max_linear),
-        linear_y=_clamp(segment.linear_y, max_lateral),
-        angular_z=_clamp(segment.angular_z, max_angular),
+        linear_x=segment.linear_x * factor,
+        linear_y=segment.linear_y * factor,
+        angular_z=segment.angular_z * factor,
         duration=segment.duration,
     )
-
-
-def _clamp(value: float, limit: float) -> float:
-    """Bound a value to +/- limit, mapping a non-finite value to zero."""
-    if not math.isfinite(value):
-        return 0.0
-    return max(-abs(limit), min(abs(limit), value))

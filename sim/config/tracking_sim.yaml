@@ -78,35 +78,29 @@ trajectory_executor_node:
 
     command_rate: 20.0
 
-    # The robot's full speed, per axis. These are the conversion factors, not
-    # a ceiling: the model reports a fraction of full speed, so a prediction
-    # of 0.49 forward commands 0.49 * max_linear_velocity. Each axis carries
-    # its own value because the model normalizes each one separately.
+    # Scales: normalized command to metres and radians per second. Derived
+    # from the training environment, not chosen. EVT-Bench gives agent 1
+    # longitudinal_lin_speed 15.0, lateral 10.0 and ang_speed 6.28, and
+    # BaseVelNonCylinderAction integrates over 1 / ctrl_freq with ctrl_freq
+    # 40, so a command of 1.0 covers 15.0 / 40 = 0.375 m in one step; the
+    # labels were integrated with dt = 0.1, giving 0.375 / 0.1 m/s.
     #
-    # Derived from the training environment rather than guessed, so that a
-    # normalized command of 1.0 moves the robot as far per step here as it did
-    # in Habitat. EVT-Bench configures agent 1 with longitudinal_lin_speed
-    # 15.0, lateral 10.0 and ang_speed 6.28, and BaseVelNonCylinderAction
-    # integrates over 1 / ctrl_freq with ctrl_freq 40. A full command there
-    # therefore covers 15.0 / 40 = 0.375 m in one step, and the labels the
-    # model learned were integrated with dt = 0.1, so the equivalent full
-    # speed is 0.375 / 0.1:
+    #     linear   15.00 / 40 / 0.1 = 3.75 m/s per unit
+    #     lateral  10.00 / 40 / 0.1 = 2.50 m/s per unit
+    #     angular   6.28 / 40 / 0.1 = 1.57 rad/s per unit
     #
-    #     linear   15.00 / 40 / 0.1 = 3.75 m/s
-    #     lateral  10.00 / 40 / 0.1 = 2.50 m/s
-    #     angular   6.28 / 40 / 0.1 = 1.57 rad/s
-    #
-    # Anything lower makes the model look sluggish for a reason that has
-    # nothing to do with the model: at 1.2 it was asked to cover a third of
-    # the ground its own output means.
-    #
-    # WARNING: no real robot does 3.75 m/s. These reproduce the simulator the
-    # checkpoint was trained in; a physical platform needs its own values, and
-    # the gap between the two is a real question about whether the model's
-    # implied speeds are achievable at all.
-    max_linear_velocity: 3.75
-    max_lateral_velocity: 2.5
-    max_angular_velocity: 1.57
+    # These follow the checkpoint. Change them only when the model changes.
+    linear_scale: 3.75
+    lateral_scale: 2.5
+    angular_scale: 1.57
+
+    # Limits: what the base can actually deliver. These follow the robot.
+    # Set generously here because the simulated chassis is configured for
+    # 4.5 m/s and the point of this world is to see the model's intent
+    # rather than a limiter's.
+    max_linear_velocity: 4.0
+    max_lateral_velocity: 3.0
+    max_angular_velocity: 3.0
 
     base_frame: base_link
 

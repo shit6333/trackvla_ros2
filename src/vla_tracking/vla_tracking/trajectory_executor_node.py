@@ -6,10 +6,13 @@ refusal. Anything malformed, stale, invalid, or unbounded is rejected with a
 logged reason, and every path that is not "executing a checked segment right
 now" publishes zero velocity.
 
-The model reports a fraction of full speed rather than metres per second, so
-`max_linear_velocity` and its siblings are the robot's full-speed values and
-are what convert a prediction into a command. They are not a ceiling the
-model is trimmed to; the clamp behind the conversion is a separate fuse.
+The model reports a normalized command rather than metres per second, so two
+separate constants stand between it and the wheels. `linear_scale` and its
+siblings convert the prediction into physical units and belong to the
+checkpoint's training environment. `max_linear_velocity` and its siblings are
+what this robot can deliver and belong to the hardware. Keeping them apart is
+what lets a prediction above 1.0 be scaled rather than cut, and lets a
+platform change without silently redefining what the model's output means.
 
 Execution is open loop: each segment is derived from the relative transform
 between two consecutive predicted poses and applied for one `dt`. There is no
@@ -27,7 +30,8 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 
 from vla_tracking.trajectory_conversion import (
-    clamp_segment,
+    limit_segment,
+    limiting_factor,
     scale_segment,
     trajectory_to_segments,
     VelocitySegment,
@@ -91,9 +95,18 @@ class TrajectoryExecutorNode(Node):
         self.declare_parameter('waypoints_to_execute', 1)
         self.declare_parameter('trajectory_timeout', 0.3)
         self.declare_parameter('command_rate', 20.0)
-        self.declare_parameter('max_linear_velocity', 0.2)
-        self.declare_parameter('max_lateral_velocity', 0.2)
-        self.declare_parameter('max_angular_velocity', 0.5)
+        # Two independent groups. The scales convert the model's normalized
+        # output into metres and radians per second and belong to the
+        # checkpoint; the limits are what the robot can actually deliver and
+        # belong to the hardware. Changing platforms should touch only the
+        # second group, and changing models only the first.
+        self.declare_parameter('linear_scale', 3.75)
+        self.declare_parameter('lateral_scale', 2.5)
+        self.declare_parameter('angular_scale', 1.57)
+
+        self.declare_parameter('max_linear_velocity', 1.0)
+        self.declare_parameter('max_lateral_velocity', 1.0)
+        self.declare_parameter('max_angular_velocity', 1.5)
         self.declare_parameter('base_frame', 'base_link')
         self.declare_parameter('require_valid', True)
         self.declare_parameter('max_trajectory_age', 0.5)
@@ -120,6 +133,9 @@ class TrajectoryExecutorNode(Node):
         self._trajectory_timeout = float(
             self.get_parameter('trajectory_timeout').value
         )
+        self._linear_scale = float(self.get_parameter('linear_scale').value)
+        self._lateral_scale = float(self.get_parameter('lateral_scale').value)
+        self._angular_scale = float(self.get_parameter('angular_scale').value)
         self._max_linear = float(self.get_parameter('max_linear_velocity').value)
         self._max_lateral = float(
             self.get_parameter('max_lateral_velocity').value
@@ -150,9 +166,10 @@ class TrajectoryExecutorNode(Node):
 
         self.get_logger().info(
             f'executing {self._waypoints_to_execute} waypoint(s) per '
-            f'prediction, full speed {self._max_linear:.2f} m/s / '
-            f'{self._max_angular:.2f} rad/s, lateral policy '
-            f'{self._lateral_policy!r}'
+            f'prediction, scale {self._linear_scale:.2f} m/s per unit / '
+            f'{self._angular_scale:.2f} rad/s per unit, limits '
+            f'{self._max_linear:.2f} m/s / {self._max_angular:.2f} rad/s, '
+            f'lateral policy {self._lateral_policy!r}'
         )
 
     # -- input --------------------------------------------------------------
@@ -209,22 +226,29 @@ class TrajectoryExecutorNode(Node):
             self._command_publisher.publish(Twist())
             return
 
-        # The segment is a fraction of full speed. Scaling gives it a
-        # physical meaning and the clamp behind it is the other half of the
-        # same semantics, not a guard: together they are Habitat's own
-        # clip(v, -1, 1) * speed. This checkpoint has no output activation,
-        # so nothing upstream has already bounded the value. See D019.
-        limited = clamp_segment(
-            scale_segment(
-                segment,
-                self._max_linear,
-                self._max_lateral,
-                self._max_angular,
-            ),
-            self._max_linear,
-            self._max_lateral,
-            self._max_angular,
+        # Two separate steps. Scaling gives the normalized segment a physical
+        # meaning using the checkpoint's constants; limiting then brings it
+        # inside what this robot can deliver, scaling the whole command by one
+        # factor so the turning radius the model asked for is preserved.
+        # See D019.
+        scaled = scale_segment(
+            segment,
+            self._linear_scale,
+            self._lateral_scale,
+            self._angular_scale,
         )
+        factor = limiting_factor(
+            scaled, self._max_linear, self._max_lateral, self._max_angular
+        )
+        limited = limit_segment(
+            scaled, self._max_linear, self._max_lateral, self._max_angular
+        )
+        if factor < 1.0:
+            self.get_logger().warn(
+                f'scaled the command to {factor:.2f} of what the model asked '
+                f'for; this base cannot deliver it',
+                throttle_duration_sec=5.0,
+            )
         command = Twist()
         command.linear.x = limited.linear_x
         command.linear.y = (

@@ -5,7 +5,8 @@ import math
 import pytest
 
 from vla_tracking.trajectory_conversion import (
-    clamp_segment,
+    limit_segment,
+    limiting_factor,
     scale_segment,
     trajectory_to_segments,
     VelocitySegment,
@@ -85,67 +86,90 @@ def test_turns_take_the_short_way_round():
     assert abs(segments[0].angular_z) < 3.0
 
 
-def test_clamping_bounds_every_axis():
-    """Check no axis can exceed its configured limit."""
+def test_scaling_converts_without_capping():
+    """
+    Check the scales convert and nothing else.
+
+    A prediction above 1.0 must come out proportionally larger, not cut. The
+    checkpoint has no output activation, so it can produce such a value, and
+    cutting it here would silently change the direction the model asked for
+    while looking like a limit doing its job.
+    """
     segment = VelocitySegment(
-        linear_x=100.0, linear_y=-50.0, angular_z=25.0, duration=0.1
+        linear_x=2.0, linear_y=-0.5, angular_z=1.5, duration=0.1
     )
-    limited = clamp_segment(segment, 0.2, 0.15, 0.5)
-    assert limited.linear_x == pytest.approx(0.2)
-    assert limited.linear_y == pytest.approx(-0.15)
-    assert limited.angular_z == pytest.approx(0.5)
-    assert limited.duration == pytest.approx(0.1)
-
-
-def test_clamping_maps_non_finite_values_to_zero():
-    """Check NaN and infinity become a stop rather than propagating."""
-    segment = VelocitySegment(
-        linear_x=float('nan'),
-        linear_y=float('inf'),
-        angular_z=float('-inf'),
-        duration=0.1,
-    )
-    limited = clamp_segment(segment, 0.2, 0.2, 0.5)
-    assert limited.linear_x == 0.0
-    assert limited.linear_y == 0.0
-    assert limited.angular_z == 0.0
-
-
-def test_scaling_applies_each_axis_own_full_speed():
-    """Check a fraction of full speed becomes that fraction of each limit."""
-    segment = VelocitySegment(
-        linear_x=0.5, linear_y=-0.25, angular_z=1.0, duration=0.1
-    )
-    scaled = scale_segment(segment, 0.2, 0.4, 0.5)
-    assert scaled.linear_x == pytest.approx(0.1)
-    assert scaled.linear_y == pytest.approx(-0.1)
-    assert scaled.angular_z == pytest.approx(0.5)
+    scaled = scale_segment(segment, 3.75, 2.5, 1.57)
+    assert scaled.linear_x == pytest.approx(7.5)
+    assert scaled.linear_y == pytest.approx(-1.25)
+    assert scaled.angular_z == pytest.approx(2.355)
     assert scaled.duration == pytest.approx(0.1)
 
 
-def test_scaling_preserves_the_ratio_between_axes():
-    """
-    Check the direction the model asked for survives the conversion.
+def test_each_axis_carries_its_own_scale():
+    """Check the axes are converted independently, as the model normalizes them."""
+    segment = VelocitySegment(
+        linear_x=1.0, linear_y=1.0, angular_z=1.0, duration=0.1
+    )
+    scaled = scale_segment(segment, 3.0, 2.0, 1.0)
+    assert (scaled.linear_x, scaled.linear_y, scaled.angular_z) == (3.0, 2.0, 1.0)
 
-    This is the property a per-axis clamp destroys, and it is why scaling
-    rather than clamping is what converts a prediction into a command.
+
+def test_a_segment_within_the_limits_is_untouched():
+    """Check limiting does nothing when there is nothing to limit."""
+    segment = VelocitySegment(
+        linear_x=0.5, linear_y=0.1, angular_z=0.4, duration=0.1
+    )
+    assert limiting_factor(segment, 1.0, 1.0, 1.0) == pytest.approx(1.0)
+    limited = limit_segment(segment, 1.0, 1.0, 1.0)
+    assert limited == segment
+
+
+def test_limiting_preserves_the_turning_radius():
+    """
+    Check the whole command is scaled by one factor, not clipped per axis.
+
+    This is the property the redesign exists for. The ratio between linear and
+    angular velocity is the turning radius, so clipping one axis and not the
+    other puts the robot on an arc the model never asked for. Scaling both
+    keeps the arc and only slows the traverse.
     """
     segment = VelocitySegment(
-        linear_x=0.9, linear_y=0.3, angular_z=0.0, duration=0.1
+        linear_x=4.0, linear_y=0.0, angular_z=1.0, duration=0.1
     )
-    scaled = scale_segment(segment, 0.2, 0.2, 0.5)
-    assert math.atan2(scaled.linear_y, scaled.linear_x) == pytest.approx(
-        math.atan2(segment.linear_y, segment.linear_x)
-    )
+    limited = limit_segment(segment, 1.0, 1.0, 2.0)
+
+    assert limited.linear_x == pytest.approx(1.0), 'the saturating axis is at its limit'
+    assert limited.angular_z == pytest.approx(0.25), 'the other axis came down with it'
+    assert limited.angular_z / limited.linear_x == pytest.approx(
+        segment.angular_z / segment.linear_x
+    ), 'the turning radius changed'
 
 
-def test_a_bounded_prediction_passes_the_fuse_untouched():
-    """Check the clamp does not engage on output the planner already bounds."""
+def test_limiting_uses_the_worst_axis():
+    """Check the factor is set by whichever axis is furthest outside."""
     segment = VelocitySegment(
-        linear_x=1.0, linear_y=-1.0, angular_z=1.0, duration=0.1
+        linear_x=2.0, linear_y=0.0, angular_z=10.0, duration=0.1
     )
-    scaled = scale_segment(segment, 0.2, 0.2, 0.5)
-    limited = clamp_segment(scaled, 0.2, 0.2, 0.5)
-    assert limited.linear_x == pytest.approx(scaled.linear_x)
-    assert limited.linear_y == pytest.approx(scaled.linear_y)
-    assert limited.angular_z == pytest.approx(scaled.angular_z)
+    # linear needs 0.5, angular needs 0.2; the smaller must win.
+    assert limiting_factor(segment, 1.0, 1.0, 2.0) == pytest.approx(0.2)
+
+
+def test_a_zero_limit_disables_that_axis_check():
+    """Check a limit of zero means unbounded rather than always saturated."""
+    segment = VelocitySegment(
+        linear_x=9.0, linear_y=0.0, angular_z=0.0, duration=0.1
+    )
+    assert limiting_factor(segment, 0.0, 0.0, 0.0) == pytest.approx(1.0)
+
+
+def test_limiting_maps_non_finite_values_to_a_stop():
+    """Check NaN and infinity stop the base rather than propagating."""
+    for bad in (float('nan'), float('inf'), float('-inf')):
+        segment = VelocitySegment(
+            linear_x=bad, linear_y=0.1, angular_z=0.1, duration=0.1
+        )
+        assert limiting_factor(segment, 1.0, 1.0, 1.0) == 0.0
+        limited = limit_segment(segment, 1.0, 1.0, 1.0)
+        assert limited.linear_x == 0.0
+        assert limited.linear_y == 0.0
+        assert limited.angular_z == 0.0

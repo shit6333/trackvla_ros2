@@ -49,6 +49,15 @@ class Pipeline:
             parameter_overrides=list(executor_overrides or []) + [
                 Parameter('command_rate', value=50.0),
                 Parameter('trajectory_timeout', value=0.5),
+                # Stated rather than inherited: the assertion below checks
+                # that commands stay inside the robot's limits, so the test
+                # must own the numbers it is checking against.
+                Parameter('linear_scale', value=1.0),
+                Parameter('lateral_scale', value=1.0),
+                Parameter('angular_scale', value=1.0),
+                Parameter('max_linear_velocity', value=0.2),
+                Parameter('max_lateral_velocity', value=0.2),
+                Parameter('max_angular_velocity', value=0.5),
             ],
         ))
         self.camera = self.graph.add(FakeCamera(context, rate=30.0))

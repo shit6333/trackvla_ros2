@@ -192,47 +192,49 @@ publish issued during teardown can be lost before the middleware sends it.
 This is a best-effort guarantee. `SIGKILL` defeats it, so it does not replace
 either the executor's own `trajectory_timeout` or a watchdog on the base.
 
-## D019 — Velocity limits scale the model's output, they do not cap it
+## D019 — Conversion and limiting are separate parameters
 
-OmTrackVLA predicts a fraction of full speed, not metres per second. It was
-trained on Habitat base commands, which that simulator clips to `[-1, 1]` and
-multiplies by a per-axis speed constant, and its training labels integrate
-those commands with a bookkeeping constant of `0.1`. Dividing a waypoint by
-`dt` inverts that integration and returns the command.
+Two constants stand between the model and the wheels, and they answer
+different questions.
 
-Nothing bounds that command inside the network. This checkpoint sets
-`use_tanh_actions: false`, so `PlannerHead3L` applies no output activation,
-and `alpha_xy: 2.0` would put the x and y range at `[-2, 2]` even if it did.
-The bound comes from the environment instead: `BaseVelNonCylinderAction`
-applies `np.clip(v, -1, 1) * speed` per axis before moving the agent
-(`actions.py:704-709`), so every command the model ever saw executed was
-saturated at 1. Measured on the released checkpoint over synthetic
-out-of-distribution frames, the recovered command reached 4.4 on the forward
-axis, which is what an unbounded head does when the input is nothing it was
-trained on.
+`linear_scale` and its siblings convert a normalized command into metres and
+radians per second. They belong to the checkpoint's training environment and
+can be derived rather than chosen: EVT-Bench gives agent 1
+`longitudinal_lin_speed` 15.0, `lateral_lin_speed` 10.0 and `ang_speed` 6.28,
+and `BaseVelNonCylinderAction` integrates over `1 / ctrl_freq` with
+`ctrl_freq` 40, so a command of 1.0 covers 15.0 / 40 = 0.375 m in one step;
+the labels were integrated with `dt` 0.1, giving 3.75 m/s, 2.5 m/s and
+1.57 rad/s per unit. These change when the model changes.
 
-The executor therefore multiplies by `max_linear_velocity` and its siblings
-rather than clamping to them. Those parameters are the robot's full speed per
-axis, and each axis needs its own because the model normalizes each one
-separately. No metric scale can be inherited from the simulator, whose
-configured maxima are not physically calibrated.
+`max_linear_velocity` and its siblings are what a particular robot can
+deliver. These change when the platform changes.
 
-Treating the output as metric had a specific consequence: a prediction of
-`0.49` was read as `0.49 m/s` against a `0.2` limit, so the clamp engaged on
-every step and the executor became a bang-bang controller with a constant
-forward speed. Because the clamp is applied per axis it also changed the
-commanded direction, which scaling does not.
+The two were originally the same parameter, on the reasoning that the model's
+output is bounded to [-1, 1] so scaling by the ceiling is exactly Habitat's
+own `clip(v, -1, 1) * speed`. That reasoning does not hold. This checkpoint
+sets `use_tanh_actions` false, so the head has no output activation, and the
+bound belonged to the simulator, which clipped commands before executing them
+rather than teaching the network not to produce them; the labels record the
+policy's action before that clip, so even the training targets were not
+guaranteed to be inside the range. Measured on out-of-distribution frames the
+recovered command reached 4.4.
 
-The clamp behind the conversion is therefore not a fuse but the second half
-of the same semantics. Scaling by `max_linear_velocity` and then clamping to
-it is algebraically `clip(v, -1, 1) * max_linear_velocity`, which is exactly
-what Habitat does to the command before it moves anything. Adding a `tanh` at
-inference instead would be wrong: this checkpoint was never trained through
-one, so it would distort values the model has no reason to expect distorted.
+Conflating them therefore forced any prediction above 1.0 to be cut instead of
+scaled, and it also tied a hardware number to a model number: choosing a
+slower robot would silently redefine what the model's output meant.
 
-What remains unmeasured is how often the clamp engages on in-distribution
-imagery. The 4.4 figure comes from noise frames, so it bounds what the model
-can emit, not what it typically emits while actually tracking someone.
+Limiting scales the whole command by a single factor rather than clipping each
+axis. The ratio between linear and angular velocity is the turning radius, so
+clipping one axis and not another puts the robot on an arc the model never
+asked for. Scaling keeps the arc and only slows the traverse; one saturating
+axis slowing everything is the right trade for a following task.
+
+Measured in simulation, the recovered command stays between 0.10 and 0.36, so
+the limiter does not currently engage at all. This is a correctness and
+interface change rather than a fix to something misbehaving today. It will
+matter as soon as the model saturates on unfamiliar input, or as soon as a
+real platform's ceiling sits below the scales above, which no real base
+reaches.
 
 ## D020 — A plan holds its last segment instead of expiring
 
