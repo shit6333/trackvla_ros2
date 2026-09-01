@@ -170,5 +170,21 @@
       <child_frame_id>base_link</child_frame_id>
       <odom_publish_frequency>30</odom_publish_frequency>
     </plugin>
+
+    <!-- Ground-truth pose, for visualization only. DiffDrive's odometry
+         integrates wheel rotation and slips while turning: measured against
+         Gazebo's own pose after a few minutes of tracking it had drifted
+         3.2 m, which drew the robot that far from the scene around it.
+         Odometry is still published and is what a real robot would have; this
+         is a simulator convenience with no hardware equivalent. -->
+    <plugin filename="gz-sim-pose-publisher-system"
+            name="gz::sim::systems::PosePublisher">
+      <publish_link_pose>true</publish_link_pose>
+      <publish_model_pose>true</publish_model_pose>
+      <publish_nested_model_pose>false</publish_nested_model_pose>
+      <use_pose_vector_msg>true</use_pose_vector_msg>
+      <static_publisher>false</static_publisher>
+      <update_frequency>30</update_frequency>
+    </plugin>
   </model>
 </sdf>

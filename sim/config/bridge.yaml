@@ -41,3 +41,29 @@
   ros_type_name: "rosgraph_msgs/msg/Clock"
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
+
+# Robot pose, so a viewer can place the robot in a scene rather than only
+# plot numbers. Gazebo publishes one Pose_V per model containing that model's
+# pose and every link's pose relative to it.
+#
+# The actor is deliberately absent from this file because Gazebo does not
+# publish its pose at all: it appears in neither pose topic, neither in the
+# serialized world state, nor in the model list. Actors are rendering
+# entities, so the person is visible in the camera images and nowhere else.
+# Ground truth, not the wheel odometry. DiffDrive's odometry integrates wheel
+# rotation and slips during turns: measured against Gazebo's own pose after a
+# few minutes of tracking, it had drifted 3.2 m, which put the robot that far
+# from the scene drawn around it. Odometry is still published on /odom and is
+# what a real robot would have; this topic exists so a viewer can show where
+# the robot actually is.
+#
+# The PosePublisher plugin on the robot supplies it. The tree it produces is
+# rooted at the world's name: tracking -> test_robot -> test_robot::base_link.
+#
+# Simulation only. There is no equivalent on hardware, and anything that comes
+# to depend on it will not survive the move.
+- ros_topic_name: "/tf"
+  gz_topic_name: "/model/test_robot/pose"
+  ros_type_name: "tf2_msgs/msg/TFMessage"
+  gz_type_name: "gz.msgs.Pose_V"
+  direction: GZ_TO_ROS

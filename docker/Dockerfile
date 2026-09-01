@@ -81,6 +81,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-nav2-lifecycle-manager \
     && rm -rf /var/lib/apt/lists/*
 
+# Remote visualization. Foxglove is a WebSocket bridge rather than an X client,
+# which is what makes it usable from another machine: RViz needs a working GLX
+# path into the session's X server, and on a GNOME Remote Desktop session that
+# path only reaches software rendering and RViz's Ogre stack crashes on it.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-${ROS_DISTRO}-foxglove-bridge \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN rosdep init || true
 
 # --- Python inference stack ----------------------------------------------

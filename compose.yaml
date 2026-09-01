@@ -74,3 +74,44 @@ services:
       # graphics is what lets the renderer run without a display; display is
       # only needed if a GUI is ever attached.
       NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics
+
+  # Attaches to the simulator already running in the `gazebo` service rather
+  # than starting one, so the headless recording pipeline is untouched by
+  # anything done here.
+  #
+  # Rendering is software. The container's GLVND loader defaults to the NVIDIA
+  # GLX vendor that the container runtime injects, but a GNOME Remote Desktop
+  # session's Xwayland is Mesa-backed, and the mismatch tears the X connection
+  # down with no usable error. Forcing the Mesa vendor fixes that and lands on
+  # llvmpipe, because Mesa cannot reach the NVIDIA GPU through this Xwayland.
+  # Expect a usable but sluggish window.
+  gazebo-gui:
+    image: trackvla-gazebo:harmonic
+    container_name: trackvla-gazebo-gui
+
+    working_dir: /workspace/trackvla_ros2
+    stdin_open: true
+    tty: true
+
+    network_mode: host
+    ipc: host
+    gpus: all
+    devices:
+      - /dev/dri:/dev/dri
+
+    volumes:
+      - .:/workspace/trackvla_ros2
+      - ./cache/gz:/home/developer/.gz
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Read-only, and only so the entrypoint can find the X cookie inside it.
+      - ${HOST_RUNTIME_DIR}:/host_run_user:ro
+
+    environment:
+      DISPLAY: "${DISPLAY_ID}"
+      HOST_RUNTIME_DIR: /host_run_user
+      XDG_RUNTIME_DIR: /tmp/runtime
+      __GLX_VENDOR_LIBRARY_NAME: mesa
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics,display
+
+    command: ["gz", "sim", "-g"]
