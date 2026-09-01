@@ -146,19 +146,24 @@
       <child>caster</child>
     </joint>
 
-    <!-- The base's full speed is 0.5 m/s, matching max_linear_velocity in
-         config/tracking.yaml. After D019 that parameter is the robot's full
-         speed rather than a cap, so the two must agree or a normalized
-         command of 1.0 would mean different things on each side. -->
+    <!-- These are the base's physical ceiling and sit above the full-speed
+         values the executor scales by, so the simulator never silently clips
+         what was commanded; the executor's own clamp is the only limiter.
+
+         The ceiling is well above the target's 0.4 m/s walk on purpose. After
+         D019 max_linear_velocity is the speed a normalized command of 1.0
+         maps to, so a robot whose full speed merely matched the person's
+         would need the model to ask for 1.0 just to keep pace, and could
+         never close a gap. Headroom is what makes following possible. -->
     <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
       <left_joint>left_wheel_joint</left_joint>
       <right_joint>right_wheel_joint</right_joint>
       <wheel_separation>0.34</wheel_separation>
       <wheel_radius>0.07</wheel_radius>
-      <max_linear_velocity>0.5</max_linear_velocity>
-      <max_angular_velocity>1.5</max_angular_velocity>
-      <max_linear_acceleration>1.0</max_linear_acceleration>
-      <max_angular_acceleration>3.0</max_angular_acceleration>
+      <max_linear_velocity>4.5</max_linear_velocity>
+      <max_angular_velocity>3.0</max_angular_velocity>
+      <max_linear_acceleration>6.0</max_linear_acceleration>
+      <max_angular_acceleration>5.0</max_angular_acceleration>
       <topic>/model/test_robot/cmd_vel</topic>
       <odom_topic>/model/test_robot/odometry</odom_topic>
       <frame_id>odom</frame_id>

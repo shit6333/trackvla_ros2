@@ -405,47 +405,9 @@
       </script>
     </actor>
 
-    <!-- Two stationary people. They give the scene something to mistake the
-         target for, which is the situation the DT split of EVT-Bench is built
-         around, and they double as the fixed landmarks the recorded video
-         needs to show that the robot is moving through the world. -->
-    <actor name="distractor_a">
-      <skin>
-        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/stand.dae</filename>
-        <scale>1.0</scale>
-      </skin>
-      <animation name="stand">
-        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/stand.dae</filename>
-        <interpolate_x>true</interpolate_x>
-      </animation>
-      <script>
-        <loop>true</loop>
-        <auto_start>true</auto_start>
-        <trajectory id="0" type="stand">
-          <waypoint><time>0</time><pose>5 4 1.0 0 0 -1.57</pose></waypoint>
-          <waypoint><time>30</time><pose>5 4 1.0 0 0 -1.57</pose></waypoint>
-        </trajectory>
-      </script>
-    </actor>
-
-    <actor name="distractor_b">
-      <skin>
-        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/stand.dae</filename>
-        <scale>1.0</scale>
-      </skin>
-      <animation name="stand">
-        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/stand.dae</filename>
-        <interpolate_x>true</interpolate_x>
-      </animation>
-      <script>
-        <loop>true</loop>
-        <auto_start>true</auto_start>
-        <trajectory id="0" type="stand">
-          <waypoint><time>0</time><pose>2 -4 1.0 0 0 1.57</pose></waypoint>
-          <waypoint><time>30</time><pose>2 -4 1.0 0 0 1.57</pose></waypoint>
-        </trajectory>
-      </script>
-    </actor>
+    <!-- One person, deliberately. Distractors belong to a later experiment;
+         while the question is whether the robot can follow anything at all,
+         a second identical figure only makes a failure harder to read. -->
 
     <include>
       <uri>model://test_robot</uri>
