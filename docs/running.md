@@ -92,8 +92,32 @@ publishes no pose for an actor at all. And `tracking` is ground truth from a
 simulator plugin, not odometry: `/odom` drifts, measured at 3.2 m after a few
 minutes, so a scene drawn against it sits metres from the robot.
 
-The Gazebo GUI does not work over a remote desktop; see the `gazebo-gui`
-service in `compose.yaml` for the diagnosis.
+## The Gazebo GUI
+
+Run it on a display of the container's own, not the host's desktop:
+
+```bash
+docker compose run -d --name vnc gazebo-vnc
+docker exec -d vnc bash -lc 'DISPLAY=:20 gz sim sim/worlds/tracking.sdf'
+```
+
+Reach it through an SSH tunnel, since the server has only a weak VNC password
+and binds to localhost:
+
+```bash
+ssh -L 5920:localhost:5920 <this host>
+# then connect a VNC client to localhost:5920, password trackvla
+```
+
+Pointing the GUI at the host's desktop session instead crashes GNOME Shell and
+takes the remote desktop down with it; `compose.yaml` records the diagnosis
+beside the `gazebo-gui` service. Rendering here is software, which is fast
+enough to inspect a scene, and does not affect the simulation itself: physics
+and the camera sensors still run on the GPU in the headless server.
+
+This is also the only view that shows the walking person. Gazebo renders
+actors but publishes no pose for them, so they reach the GUI and never reach
+Foxglove.
 
 Then, from a second shell into the same container:
 

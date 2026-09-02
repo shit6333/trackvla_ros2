@@ -38,6 +38,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim \
     && rm -rf /var/lib/apt/lists/*
 
+# A display of the container's own. Xvnc is a full X server rather than a
+# screen-sharing tool: it creates a display that exists only in memory, with
+# no physical screen and no connection to the host's desktop.
+#
+# That isolation is the point. Running the Gazebo GUI against the host's
+# session crashed GNOME Shell itself, taking the whole remote desktop with it
+# every time, so it could not be experimented with. A crash here costs only
+# this X server.
+#
+# openbox gives windows a title bar so they can be moved and resized, and
+# xterm gives somewhere to type inside the session. x11vnc is installed only
+# for its -storepasswd: this build of tigervnc ships no vncpasswd, and macOS
+# Screen Sharing refuses a server that offers no authentication.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tigervnc-standalone-server \
+    tigervnc-common \
+    x11vnc \
+    openbox \
+    xterm \
+    x11-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN if getent passwd "${USER_ID}" >/dev/null; then \
         userdel -r "$(getent passwd "${USER_ID}" | cut -d: -f1)" || true; \
     fi \

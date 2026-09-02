@@ -75,16 +75,28 @@ services:
       # only needed if a GUI is ever attached.
       NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics
 
-  # Attaches to the simulator already running in the `gazebo` service rather
-  # than starting one, so the headless recording pipeline is untouched by
-  # anything done here.
+  # Points the Gazebo GUI at the host's desktop session. It does not work,
+  # and is kept only so the next person does not repeat the investigation.
   #
-  # Rendering is software. The container's GLVND loader defaults to the NVIDIA
-  # GLX vendor that the container runtime injects, but a GNOME Remote Desktop
-  # session's Xwayland is Mesa-backed, and the mismatch tears the X connection
-  # down with no usable error. Forcing the Mesa vendor fixes that and lands on
-  # llvmpipe, because Mesa cannot reach the NVIDIA GPU through this Xwayland.
-  # Expect a usable but sluggish window.
+  # Running it crashes GNOME Shell itself. The journal records
+  # "GNOME Shell crashed with signal 11" at the moment of each attempt,
+  # followed by a new session starting, and the remote desktop drops with it.
+  # The client's own error, "XIO: fatal IO error 0 (Success)", is the X server
+  # disappearing rather than a fault in the client.
+  #
+  # Nothing on this side fixes it. Measured from inside the container against
+  # that session, GLX works and gives hardware OpenGL 4.6 on the NVIDIA GPU,
+  # so the graphics stack is sound; the fault is in the compositor, which also
+  # logs "Failed to query EGL render node path" on every session start.
+  #
+  # Two conclusions reached during that investigation were wrong and are worth
+  # naming, because both cost time. Forcing __GLX_VENDOR_LIBRARY_NAME=mesa was
+  # believed to fix a vendor mismatch; it selects llvmpipe and throws away
+  # hardware rendering. Ogre2 was then believed to segfault on software
+  # rendering; it runs fine on it, as the gazebo-vnc service demonstrates.
+  # Every crash traced back to the compositor.
+  #
+  # Use gazebo-vnc instead.
   gazebo-gui:
     image: trackvla-gazebo:harmonic
     container_name: trackvla-gazebo-gui
@@ -110,8 +122,54 @@ services:
       DISPLAY: "${DISPLAY_ID}"
       HOST_RUNTIME_DIR: /host_run_user
       XDG_RUNTIME_DIR: /tmp/runtime
-      __GLX_VENDOR_LIBRARY_NAME: mesa
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics,display
 
     command: ["gz", "sim", "-g"]
+
+  # A display of the container's own, served over VNC.
+  #
+  # Exists because pointing the Gazebo GUI at the host's desktop session
+  # crashed GNOME Shell every time, taking the remote desktop with it, which
+  # made the problem impossible to work on. Xvnc is a full X server rather
+  # than a screen-sharing tool: the display here is not connected to the
+  # host's, so a crash costs only this container.
+  #
+  # It binds to localhost, so reach it through an SSH tunnel:
+  #     ssh -L 5920:localhost:5920 <this host>
+  #
+  # Display :20, not :1: host networking puts this container in the host's
+  # network namespace, where an X server's abstract socket lives, so low
+  # display numbers collide with the host's own and Xvnc refuses to start.
+  # There is no password; pass --public to run_vnc.sh only on a trusted
+  # network.
+  #
+  # Rendering starts out on llvmpipe because Xvnc has no GPU backend. Gazebo's
+  # ogre2 is known to segfault on software rendering, so expect that until
+  # hardware acceleration is added; the difference from before is that failing
+  # here is harmless.
+  gazebo-vnc:
+    image: trackvla-gazebo:harmonic
+    container_name: trackvla-gazebo-vnc
+
+    working_dir: /workspace/trackvla_ros2
+    stdin_open: true
+    tty: true
+
+    network_mode: host
+    ipc: host
+    shm_size: "2gb"
+    gpus: all
+    devices:
+      - /dev/dri:/dev/dri
+
+    volumes:
+      - .:/workspace/trackvla_ros2
+      - ./cache/gz:/home/developer/.gz
+
+    environment:
+      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID}"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics,display
+
+    command: ["./scripts/run_vnc.sh"]
