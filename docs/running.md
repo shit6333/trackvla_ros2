@@ -98,14 +98,30 @@ Run it on a display of the container's own, not the host's desktop:
 
 ```bash
 docker compose run -d --name vnc gazebo-vnc
-docker exec -d vnc bash -lc 'DISPLAY=:20 gz sim sim/worlds/tracking.sdf'
 ```
+
+Then type in the xterm inside the VNC session. It already has the ROS
+environment and `GZ_SIM_RESOURCE_PATH`, so nothing needs sourcing:
+
+```bash
+gz sim sim/worlds/tracking.sdf     # server and GUI together, for editing
+gz sim -g                          # GUI only, attached to a running server
+```
+
+The difference is `-g`. Without it Gazebo starts its own server, which is what
+you want while editing a world: close it, edit the SDF, open it again. With
+it, the GUI attaches to the headless server in the `sim` container, which is
+how to watch the pipeline drive the robot.
+
+The Entity Tree and Component Inspector panels are the fastest way to see what
+a piece of SDF actually became, which beats reading the file and guessing.
 
 Reach it through an SSH tunnel, since the server has only a weak VNC password
 and binds to localhost:
 
 ```bash
 ssh -L 5920:localhost:5920 <this host>
+# ssh -L 5920:localhost:5920 y_ricky@192.168.1.108
 # then connect a VNC client to localhost:5920, password trackvla
 ```
 
