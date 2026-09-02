@@ -41,14 +41,59 @@ compiled.
 
 ## Running
 
+Against the simulator, two containers:
+
+```bash
+docker compose run -d --name sim      gazebo       ./scripts/run_sim.sh
+docker compose run -d --name tracking vla_tracking ./scripts/run_tracking.sh
+```
+
+The second brings up both runtime nodes, the Foxglove bridge, and the marker
+publishers together. They all join one ROS graph, and with host networking a
+separate container buys a node no isolation it does not already have; it only
+adds something else to remember to stop.
+
+Send a goal into the running container rather than starting another:
+
+```bash
+docker exec tracking bash -lc 'source install/setup.bash && \
+    ros2 action send_goal /vla/track_target \
+    vla_tracking_interfaces/action/TrackTarget \
+    "{instruction: '"'"'follow the person'"'"'}"'
+```
+
+Stop with `docker rm -f tracking sim`. Name them; a pattern like `trackvla`
+also matches the unrelated OmTrackVLA evaluation container.
+
+Without a simulator, the pipeline alone:
+
 ```bash
 docker compose run --rm vla_tracking bash
-# inside the container:
 source install/setup.bash
-
 ros2 launch vla_tracking tracking.launch.py                    # fake backend
 ros2 launch vla_tracking tracking.launch.py backend:=omtrackvla
 ```
+
+## Watching a run
+
+Foxglove Studio connects over a WebSocket, so it needs no display and works
+from another machine:
+
+```
+ws://<this host>:8765
+```
+
+Set the 3D panel's display frame to `tracking`, then add `/scene_markers` and
+`/vla/trajectory_markers`. Images are on `/camera/image_raw`, which is what
+the model sees, and `/sim/third_person/image_raw`.
+
+Two things that view cannot show. The walking person is absent because Gazebo
+publishes no pose for an actor at all. And `tracking` is ground truth from a
+simulator plugin, not odometry: `/odom` drifts, measured at 3.2 m after a few
+minutes, so a scene drawn against it sits metres from the robot.
+
+The Gazebo GUI does not work over a remote desktop; see the `gazebo-gui`
+service in `compose.yaml` for the diagnosis.
 
 Then, from a second shell into the same container:
 
