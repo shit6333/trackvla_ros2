@@ -1,24 +1,76 @@
 # Nav2 velocity smoother. Disabled by default; enable with
 #   ros2 launch vla_tracking tracking.launch.py enable_velocity_smoother:=true
+#   ros2 launch sim/launch/tracking_sim.launch.py enable_velocity_smoother:=true
 #
 # The launch file supplies the input and output topics, so the wiring cannot
 # disagree with the rest of the chain.
 #
-# These limits have not been validated against a robot. They must not exceed
-# what the base can actually deliver, and they interact with the executor's own
-# hard limits: the smoother can only reduce a command, never raise it.
+# What this is for. The executor publishes a new velocity every command_rate
+# tick and nothing bounds how far one differs from the last. A simulated
+# DiffDrive base takes that as a joint velocity target and reaches it inside a
+# single physics step, so an unsmoothed step of 0.7 m/s is a deceleration of
+# roughly 175 m/s^2. Real hardware has motor and traction limits that hide
+# this; the simulator does not, and the TurtleBot3 Burger tipped onto its nose
+# whenever the model commanded a stop or a reversal at speed.
+#
+# The acceleration limits below are Nav2's own defaults, which are what a
+# differential-drive indoor base normally uses. The usual rule of thumb behind
+# them is to reach full speed in half a second to a second; here that is
+# 1.0 / 2.5 = 0.4 s.
+#
+# Checking them against this robot, rather than deriving them from it. A
+# two-wheel base whose caster sits behind the axle has no ground contact ahead
+# of the wheels, so the front pivot is the axle itself. Summing every link in
+# the TurtleBot's own SDF:
+#
+#     total mass                     1.335 kg
+#     centre of mass                 x = -0.039 m (behind the axle)
+#     centre of mass above ground    h =  0.090 m
+#     lever arm to the front pivot   d =  0.039 m
+#
+# Tipping needs enough rotational energy about that pivot to lift the centre
+# of mass over it, which for a sudden velocity change works out at
+#
+#     dv_tip ~ 0.46 m/s
+#
+# and that matches what was observed: a run whose largest step was 0.34 m/s
+# stayed upright for 75 s, and the run that stepped by more than 0.7 tipped.
+#
+# The smoother bounds one step at max_accel / smoothing_frequency, so
+# 2.5 / 20.0 = 0.125 m/s, a factor of 3.7 inside the threshold. If a base
+# still tips, halve max_accel and max_decel before reaching for anything else;
+# that is the number this failure mode responds to.
+#
+# These limits are still simulation values. They must not exceed what a real
+# base can deliver, and they interact with the executor's own hard limits: the
+# smoother can only reduce a command, never raise it. Keep max_velocity at or
+# above the executor's max_*_velocity, or this file silently becomes the
+# binding limit instead of the one documented beside the robot.
 
 velocity_smoother:
   ros__parameters:
     smoothing_frequency: 20.0
-    scale_velocities: false
+
+    # Scale every axis by one factor when any of them is limited, so a ramp
+    # keeps the commanded turning radius instead of straightening the arc.
+    # Same rule the executor's own limiter follows.
+    scale_velocities: true
+
+    # OPEN_LOOP assumes the last command was achieved. CLOSED_LOOP reads
+    # odom_topic instead, which here is wheel odometry and drifts.
     feedback: "OPEN_LOOP"
 
-    # [x, y, theta]
-    max_velocity: [0.2, 0.2, 0.5]
-    min_velocity: [-0.2, -0.2, -0.5]
-    max_accel: [1.0, 1.0, 2.0]
-    max_decel: [-1.0, -1.0, -2.0]
+    # [x, y, theta]. Matched to sim/config/tracking_sim.yaml so the smoother
+    # shapes the command without also capping it. Nav2 ships 0.0 on y for a
+    # differential base; this pipeline can publish lateral velocity, so the
+    # axis is given the same range as x rather than being silenced here.
+    max_velocity: [1.0, 1.0, 2.5]
+    min_velocity: [-1.0, -1.0, -2.5]
+
+    # Nav2 defaults. This is the setting that prevents the tip-over; see the
+    # margin calculation above before changing it.
+    max_accel: [2.5, 2.5, 3.2]
+    max_decel: [-2.5, -2.5, -3.2]
 
     # Zero output if no command arrives within this window.
     velocity_timeout: 1.0

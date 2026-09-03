@@ -94,13 +94,25 @@ trajectory_executor_node:
     lateral_scale: 2.5
     angular_scale: 1.57
 
-    # Limits: what the base can actually deliver. These follow the robot.
-    # Set generously here because the simulated chassis is configured for
-    # 4.5 m/s and the point of this world is to see the model's intent
-    # rather than a limiter's.
-    max_linear_velocity: 4.0
-    max_lateral_velocity: 3.0
-    max_angular_velocity: 3.0
+    # Limits: what the base can actually deliver. These follow the robot,
+    # not the checkpoint, and they are the software half of a pair. The other
+    # half is the DiffDrive plugin in the robot's own SDF, which stands in for
+    # the chassis. Keep the software limit at or below the chassis one, so
+    # what is commanded is what gets driven:
+    #
+    #     sim/models/turtlebot3_burger/model.sdf   1.2 m/s   chassis
+    #     here                                     1.0 m/s   software
+    #
+    # A real TurtleBot3 Burger tops out at 0.22 m/s and 2.84 rad/s. That is
+    # slower than the 0.4 m/s walker in this world, so on real hardware the
+    # base could not keep up regardless of the model. 1.0 is chosen to make
+    # the model's intent observable, not to be faithful to the datasheet.
+    #
+    # Limiting scales all three axes by one factor, so the turning radius
+    # survives; it is a slowdown, not a clip.
+    max_linear_velocity: 1.0
+    max_lateral_velocity: 1.0
+    max_angular_velocity: 2.5
 
     base_frame: base_link
 

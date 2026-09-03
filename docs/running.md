@@ -74,6 +74,151 @@ ros2 launch vla_tracking tracking.launch.py                    # fake backend
 ros2 launch vla_tracking tracking.launch.py backend:=omtrackvla
 ```
 
+### Step by step, with the GUI
+
+`scripts/run_sim.sh` starts a headless simulator of its own, so it cannot be
+used alongside a GUI Gazebo: the two would load the same world twice and
+advertise the same topics. Start the pieces separately instead. Four shells,
+two inside the VNC desktop and two on the host.
+
+The VNC desktop runs inside the `vnc` container, so its terminals already have
+the environment sourced and already see `/workspace/trackvla_ros2`. That
+container is built from the Gazebo image and has no torch, so the inference
+nodes cannot run there; they need `trackvla-ros2-dev`.
+
+**A, in the VNC desktop.** The simulator:
+
+```bash
+cd /workspace/trackvla_ros2
+gz sim -r sim/worlds/tracking.sdf
+```
+
+`-r` starts it running. Without it the world loads paused, every topic stays
+silent, and the pipeline looks broken while nothing is wrong. If Gazebo cannot
+resolve `model://turtlebot3_burger`, export the resource path first:
+
+```bash
+export GZ_SIM_RESOURCE_PATH=/workspace/trackvla_ros2/sim/models
+```
+
+**B, in the VNC desktop.** The bridge:
+
+```bash
+cd /workspace/trackvla_ros2
+ros2 run ros_gz_bridge parameter_bridge --ros-args \
+    -p config_file:=/workspace/trackvla_ros2/sim/config/bridge.yaml
+```
+
+Confirm before going further, because everything downstream depends on it:
+
+```bash
+ros2 topic hz /camera/image_raw     # about 10 Hz
+```
+
+**C, on the host.** The runtime nodes:
+
+```bash
+docker exec -it trackvla-ros2-dev bash
+cd /workspace/trackvla_ros2
+scripts/run_tracking.sh backend:=omtrackvla
+```
+
+Loading the checkpoint takes about 40 seconds. Wait for:
+
+```text
+backend 'omtrackvla' ready=True, inference rate 10.0 Hz
+```
+
+The executor also prints the limits it resolved, which is the cheapest way to
+confirm a parameter edit was picked up:
+
+```text
+limits 1.00 m/s / 2.50 rad/s
+```
+
+**D, on the host.** The goal. Nothing before this step carries the
+instruction: `run_tracking.sh` starts the nodes and they sit in IDLE until a
+goal names a target, and no configuration file holds a default. Enter the
+container through the entrypoint, which is what sources ROS and the workspace
+overlay:
+
+```bash
+docker exec -it trackvla-ros2-dev /usr/local/bin/entrypoint.sh bash
+```
+
+Then, in that shell:
+
+```bash
+ros2 action send_goal /vla/track_target \
+    vla_tracking_interfaces/action/TrackTarget \
+    "{instruction: 'follow the person'}" --feedback
+```
+
+`--feedback` keeps printing status and never returns, because the task does not
+end on its own; leave that terminal as a monitor or drop the flag.
+
+To change the instruction, send another goal. It preempts the running one and
+clears the backend's temporal state, so `predictions_published` restarts from
+zero: this is a new task, not a renamed one.
+
+`docker exec` bypasses the image's ENTRYPOINT, which is why a plain
+`docker exec -it trackvla-ros2-dev bash` has no `ros2` on its PATH. Sourcing by
+hand is equivalent as long as both lines are used:
+
+```bash
+source /opt/ros/$ROS_DISTRO/setup.bash   # ros2, rclpy, the standard messages
+source install/setup.bash                # vla_tracking_interfaces and the nodes
+```
+
+The first alone is not enough. `ros2` will run, but
+`vla_tracking_interfaces/action/TrackTarget` will not resolve, and the goal
+above fails on a type it cannot find.
+
+### Checking a run
+
+```bash
+docker exec -it trackvla-ros2-dev bash -lc '
+    source /opt/ros/$ROS_DISTRO/setup.bash; source install/setup.bash
+    ros2 node list
+    ros2 topic echo /vla/status --once | grep -E "task_state|predictions_published"
+    ros2 topic hz /cmd_vel'
+```
+
+`task_state` 2 is TRACKING. A live node list is not proof of a live pipeline:
+what matters is that `predictions_published` keeps climbing and `/cmd_vel` has
+a rate. A node name appearing twice means a previous run was not fully stopped,
+and two executors will be publishing competing commands.
+
+### Stopping
+
+Ctrl-C in C and D, then in A and B. Ctrl-C is what propagates the signal to a
+launch file's children; killing the launch process alone leaves the nodes
+orphaned and still publishing.
+
+Do not stop them by name pattern. `pkill -f vla_inference_node` run through
+`bash -lc` matches the shell's own command line, which contains that string, so
+pkill kills itself before reaching the node. Take the PIDs first:
+
+```bash
+docker exec trackvla-ros2-dev bash -lc '
+    PIDS=$(pgrep -f "lib/vla_tracking/")
+    kill $PIDS; sleep 3; kill -9 $PIDS 2>/dev/null'
+```
+
+### When nothing moves
+
+Two failures account for nearly all of them.
+
+Gazebo is paused, because `-r` was omitted. `ros2 topic hz /camera/image_raw`
+distinguishes this from every other cause in one command.
+
+Or the person is outside the camera. The horizontal field of view is 90
+degrees, so anything beyond 45 degrees off the nose does not exist as far as
+the model is concerned, and an empty scene reads as "drive forward". The robot
+spawns at the origin facing +x and the walker starts at (3, -2), a bearing of
+-34 degrees, which is why that spawn pose is chosen rather than convenient.
+Restarting Gazebo returns both to those positions.
+
 ## Watching a run
 
 Foxglove Studio connects over a WebSocket, so it needs no display and works
@@ -153,8 +298,31 @@ ros2 launch vla_tracking tracking.launch.py enable_velocity_smoother:=true
 ros2 launch vla_tracking tracking.launch.py enable_collision_monitor:=true
 ```
 
+Against the simulator, the same argument reaches the same node through the
+sim launch:
+
+```bash
+scripts/run_tracking.sh backend:=omtrackvla enable_velocity_smoother:=true
+```
+
 Both are disabled by default and, when disabled, are absent rather than
 configured to do nothing (D004).
+
+The smoother turns a step change in commanded velocity into a ramp bounded by
+`max_accel / smoothing_frequency`. That matters more in simulation than it
+sounds: DiffDrive treats a command as a joint velocity target and reaches it
+within one physics step, so an unsmoothed step is a step, and the TurtleBot3
+Burger tipped forward onto its nose when the model commanded a stop at speed.
+The limits in `config/velocity_smoother.yaml` are Nav2's defaults; the margin
+they leave against this particular chassis is worked out in that file.
+
+Confirm it is actually in the chain, since a disabled one is simply absent:
+
+```bash
+ros2 node list | grep velocity_smoother
+ros2 topic hz /cmd_vel_raw     # the executor now publishes here
+ros2 topic hz /cmd_vel         # and the smoother owns this
+```
 
 Enabling the collision monitor requires a real sensor on its configured source
 topic. It is fail-safe, so with no data arriving it holds the base stopped once

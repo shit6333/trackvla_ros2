@@ -152,7 +152,7 @@ def main():
     parser.add_argument('--angular-scale', type=float, default=1.57)
     parser.add_argument('--height', type=float, default=0.12)
     parser.add_argument(
-        '--frame', default='test_robot/base_link',
+        '--frame', default='turtlebot3_burger/base',
         help='Override the frame the plan is drawn in. Empty uses the frame '
              'named in the message.',
     )

@@ -124,7 +124,7 @@ def build_markers(world_path, frame_id):
     return markers
 
 
-def build_robot_marker(frame_id='test_robot/base_link'):
+def build_robot_marker(frame_id='turtlebot3_burger/base'):
     """Draw the chassis in the robot's own frame so TF carries it around."""
     marker = Marker()
     marker.header.frame_id = frame_id
@@ -156,7 +156,7 @@ def main():
              'from the posts it is driving past.',
     )
     parser.add_argument(
-        '--robot-frame', default='test_robot/base_link',
+        '--robot-frame', default='turtlebot3_burger/base',
         help='Frame the chassis marker rides on, as named by the pose '
              'publisher plugin.',
     )

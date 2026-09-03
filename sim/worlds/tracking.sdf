@@ -30,7 +30,7 @@
 
     <scene>
       <ambient>0.5 0.5 0.5 1</ambient>
-      <background>0.5 0.65 0.85 1</background>
+      <background>0.1 0.1 0.12 1</background>
       <shadows>true</shadows>
     </scene>
 
@@ -42,21 +42,6 @@
       <direction>-0.5 0.2 -0.9</direction>
     </light>
 
-    <model name="ground_plane">
-      <static>true</static>
-      <link name="link">
-        <collision name="collision">
-          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
-        </collision>
-        <visual name="visual">
-          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
-          <material>
-            <ambient>0.4 0.4 0.4 1</ambient>
-            <diffuse>0.5 0.5 0.5 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
 
     <!-- Something to look at, so the recorded video shows whether the robot
          is actually moving relative to the world rather than shaking in
@@ -69,296 +54,6 @@
          recording of a robot standing still. These give the eye something to
          measure against. They are static and thin, so they cost almost
          nothing to simulate. -->
-    <model name="post_0_0">
-      <static>true</static>
-      <pose>-4 -8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_0_1">
-      <static>true</static>
-      <pose>-4 -4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_0_2">
-      <static>true</static>
-      <pose>-4 0 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_0_3">
-      <static>true</static>
-      <pose>-4 4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_0_4">
-      <static>true</static>
-      <pose>-4 8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_1_0">
-      <static>true</static>
-      <pose>0 -8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_1_1">
-      <static>true</static>
-      <pose>0 -4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_1_3">
-      <static>true</static>
-      <pose>0 4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_1_4">
-      <static>true</static>
-      <pose>0 8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_2_0">
-      <static>true</static>
-      <pose>4 -8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_2_1">
-      <static>true</static>
-      <pose>4 -4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_2_2">
-      <static>true</static>
-      <pose>4 0 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_2_3">
-      <static>true</static>
-      <pose>4 4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_2_4">
-      <static>true</static>
-      <pose>4 8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_3_0">
-      <static>true</static>
-      <pose>8 -8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_3_1">
-      <static>true</static>
-      <pose>8 -4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_3_2">
-      <static>true</static>
-      <pose>8 0 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_3_3">
-      <static>true</static>
-      <pose>8 4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_3_4">
-      <static>true</static>
-      <pose>8 8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_4_0">
-      <static>true</static>
-      <pose>12 -8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_4_1">
-      <static>true</static>
-      <pose>12 -4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_4_2">
-      <static>true</static>
-      <pose>12 0 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_4_3">
-      <static>true</static>
-      <pose>12 4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_4_4">
-      <static>true</static>
-      <pose>12 8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_5_0">
-      <static>true</static>
-      <pose>16 -8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_5_1">
-      <static>true</static>
-      <pose>16 -4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_5_2">
-      <static>true</static>
-      <pose>16 0 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_5_3">
-      <static>true</static>
-      <pose>16 4 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.75 0.3 0.15 1</ambient><diffuse>0.75 0.3 0.15 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-    <model name="post_5_4">
-      <static>true</static>
-      <pose>16 8 0.6 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry><cylinder><radius>0.06</radius><length>1.2</length></cylinder></geometry>
-          <material><ambient>0.2 0.45 0.7 1</ambient><diffuse>0.2 0.45 0.7 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
 
     <!-- People rather than boxes.
          The checkpoint was trained to follow humanoids, so a scene made of
@@ -378,7 +73,46 @@
          than a race the robot cannot win. Each corner holds position for a
          second while the yaw changes, which is what keeps the walk animation
          pointing along the direction of travel. -->
-    <actor name="target">
+    <!-- The posts are a 4 m grid with two omitted. post_2_2 at (4, 0) sat
+         exactly on the line from the robot's spawn to the green walker's
+         start, hiding the target in the first frames of every run, and
+         post_3_2 at (8, 0) stood on two of the three walking circles, which
+         actors pass straight through because they have no collision. Both
+         were artefacts of a grid laid out before the walkers existed. See
+         sim/scripts/actor_paths.py for the geometry they clashed with. -->
+    <!-- A room, because the checkpoint has never seen anything else. Its
+         episodes are HSSD interiors: floors, walls, furniture, bounded space.
+         The grey infinite plane under a blue sky that this world used to be is
+         not a hard scene for the tracker, it is a scene the vision encoders
+         were never trained to describe, and no amount of prompt wording fixes
+         that.
+
+         9.76 x 9.76 m and 3.05 m high, centred here at (2, 0) so the robot
+         spawn at the origin keeps 2.9 m to the wall behind it and the walking
+         circles keep 2.3 m to the wall ahead. It carries its own floor, its own
+         collision, and a baked lightmap, which is why the ground plane and the
+         27 landmark posts are gone: the posts existed to give the camera
+         something to parallax against, and a textured room does that far
+         better. -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Indoor lightmap</uri>
+      <name>room</name>
+      <!-- The 0.668 lift is measured, not chosen. The mesh carries a node
+           transform that puts its floor that far below the model origin, so
+           included at z = 0 the whole room sinks and everything placed at
+           z = 0 by this world (the walkers, the robot spawn) ends up in
+           mid air above it. Reading the COLLADA position arrays alone misses
+           this; what settled it was dropping the robot in and watching where
+           it came to rest (z = -0.658, with its base 0.010 above the floor). -->
+      <pose>2 0 0.668 0 0 0</pose>
+    </include>
+
+    <!-- One target on a loop and two distractors crossing it,
+         generated by sim/scripts/actor_paths.py. Edit the paths
+         there and re-emit; the same module answers position_at()
+         for an evaluator, so the world and the measurement cannot
+         drift apart. -->
+    <actor name="person_green_shirt">
       <skin>
         <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/walk.dae</filename>
         <scale>1.0</scale>
@@ -391,16 +125,65 @@
         <loop>true</loop>
         <delay_start>0.0</delay_start>
         <auto_start>true</auto_start>
-        <trajectory id="0" type="walk" tension="0.6">
-          <waypoint><time>0</time><pose>3 -2 1.0 0 0 0</pose></waypoint>
-          <waypoint><time>10</time><pose>7 -2 1.0 0 0 0</pose></waypoint>
-          <waypoint><time>11</time><pose>7 -2 1.0 0 0 1.57</pose></waypoint>
-          <waypoint><time>21</time><pose>7 2 1.0 0 0 1.57</pose></waypoint>
-          <waypoint><time>22</time><pose>7 2 1.0 0 0 3.142</pose></waypoint>
-          <waypoint><time>32</time><pose>3 2 1.0 0 0 3.142</pose></waypoint>
-          <waypoint><time>33</time><pose>3 2 1.0 0 0 -1.57</pose></waypoint>
-          <waypoint><time>43</time><pose>3 -2 1.0 0 0 -1.57</pose></waypoint>
-          <waypoint><time>44</time><pose>3 -2 1.0 0 0 0</pose></waypoint>
+        <trajectory id="0" type="walk" tension="1.0">
+          <waypoint><time>0.00</time><pose>2.5000 0.0000 1 0 0 1.5708</pose></waypoint>
+          <waypoint><time>3.00</time><pose>2.5000 0.0000 1 0 0 1.5708</pose></waypoint>
+          <waypoint><time>6.85</time><pose>2.5000 1.5000 1 0 0 1.5708</pose></waypoint>
+          <waypoint><time>7.85</time><pose>2.5000 1.5000 1 0 0 0.0000</pose></waypoint>
+          <waypoint><time>12.97</time><pose>4.5000 1.5000 1 0 0 0.0000</pose></waypoint>
+          <waypoint><time>13.97</time><pose>4.5000 1.5000 1 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>21.67</time><pose>4.5000 -1.5000 1 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>22.67</time><pose>4.5000 -1.5000 1 0 0 -3.1416</pose></waypoint>
+          <waypoint><time>27.79</time><pose>2.5000 -1.5000 1 0 0 -3.1416</pose></waypoint>
+          <waypoint><time>28.79</time><pose>2.5000 -1.5000 1 0 0 1.5708</pose></waypoint>
+          <waypoint><time>32.64</time><pose>2.5000 0.0000 1 0 0 1.5708</pose></waypoint>
+          <waypoint><time>33.64</time><pose>2.5000 0.0000 1 0 0 1.5708</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <actor name="person_spiderman">
+      <skin>
+        <filename>/workspace/trackvla_ros2/cache/spiderman_scaled/meshes/model.obj</filename>
+        <scale>1.0</scale>
+      </skin>
+      <!-- No animation data in this mesh: the figure holds its pose and slides. -->
+      <script>
+        <loop>true</loop>
+        <delay_start>0.0</delay_start>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walk" tension="1.0">
+          <waypoint><time>0.00</time><pose>4.0000 1.6000 0 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>9.00</time><pose>4.0000 1.6000 0 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>17.21</time><pose>4.0000 -1.6000 0 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>18.21</time><pose>4.0000 -1.6000 0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>26.41</time><pose>4.0000 1.6000 0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>27.41</time><pose>4.0000 1.6000 0 0 0 -1.5708</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <actor name="person_white_shirt">
+      <skin>
+        <filename>https://fuel.gazebosim.org/1.0/abmohit/models/walking person/1/files/meshes/walking.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <!-- No animation data in this mesh: the figure holds its pose and slides. -->
+      <script>
+        <loop>true</loop>
+        <delay_start>0.0</delay_start>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walk" tension="1.0">
+          <waypoint><time>0.00</time><pose>3.0000 -1.9000 0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>6.00</time><pose>3.0000 -1.9000 0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>11.64</time><pose>5.2000 -1.9000 0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>12.64</time><pose>5.2000 -1.9000 0 0 0 -3.1416</pose></waypoint>
+          <waypoint><time>19.05</time><pose>5.2000 0.6000 0 0 0 -3.1416</pose></waypoint>
+          <waypoint><time>20.05</time><pose>5.2000 0.6000 0 0 0 0.0000</pose></waypoint>
+          <waypoint><time>26.46</time><pose>5.2000 -1.9000 0 0 0 0.0000</pose></waypoint>
+          <waypoint><time>27.46</time><pose>5.2000 -1.9000 0 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>33.10</time><pose>3.0000 -1.9000 0 0 0 -1.5708</pose></waypoint>
+          <waypoint><time>34.10</time><pose>3.0000 -1.9000 0 0 0 1.5708</pose></waypoint>
         </trajectory>
       </script>
     </actor>
@@ -409,9 +192,25 @@
          while the question is whether the robot can follow anything at all,
          a second identical figure only makes a failure harder to read. -->
 
-    <include>
+    <!-- test_robot is out of the world while the TurtleBot is the subject.
+         Putting it back means uncommenting this and switching the bridge to
+         sim/config/bridge_test_robot.yaml; the two are wired identically and
+         differ only in five topic names. Two robots in one scene would also
+         put a robot in the other's camera, which the model has no reason to
+         handle well. -->
+    <!-- <include>
       <uri>model://test_robot</uri>
       <pose>0 0 0.1 0 0 0</pose>
+    </include> -->
+
+    <include>
+      <uri>model://turtlebot3_burger</uri>
+      <!-- 生成位置由相機視野決定，不是隨便放的。水平 FOV 90 度（±45），
+           行人的起點在 (3,-2)：
+             從 (2,2) 朝 +x  ->  方位 -76 度，在畫面外，模型看不到人
+             從 (0,0) 朝 +x  ->  方位 -34 度，在畫面內
+           base 原點離地 0.010 m，所以 z 用 0.02 就好，不需要摔下來。 -->
+      <pose>0 0 0.02 0 0 0</pose>
     </include>
 
   </world>

@@ -41,6 +41,7 @@ def _setup(context, *args, **kwargs):
     """Build the node list once the launch arguments are known."""
     backend = LaunchConfiguration('backend').perform(context)
     port = LaunchConfiguration('foxglove_port').perform(context)
+    smoother = LaunchConfiguration('enable_velocity_smoother').perform(context)
     with_viewers = _as_bool(
         LaunchConfiguration('enable_visualization').perform(context)
     )
@@ -58,6 +59,7 @@ def _setup(context, *args, **kwargs):
             launch_arguments={
                 'backend': backend,
                 'params_file': params_file,
+                'enable_velocity_smoother': smoother,
             }.items(),
         ),
     ]
@@ -93,6 +95,17 @@ def generate_launch_description() -> LaunchDescription:
     return LaunchDescription([
         DeclareLaunchArgument('backend', default_value='omtrackvla'),
         DeclareLaunchArgument('foxglove_port', default_value='8765'),
+        DeclareLaunchArgument(
+            'enable_velocity_smoother',
+            default_value='false',
+            description=(
+                'Insert the Nav2 velocity smoother between the executor and '
+                'the base. Off by default so a run measures the model rather '
+                'than a filter. Turn it on for a chassis that tips: DiffDrive '
+                'applies a command as an instantaneous joint velocity, so an '
+                'unsmoothed step is a step in one physics tick.'
+            ),
+        ),
         DeclareLaunchArgument(
             'enable_visualization',
             default_value='true',
