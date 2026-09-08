@@ -81,6 +81,7 @@ they skip cleanly when either is absent.
 ## Documentation
 
 - [Building and running](docs/running.md) — container, launch, tests, rosbag
+- [Deploying on a robot](docs/deployment.md) — what a clone lacks, robot interfaces, per-robot parameters, other GPUs
 - [Interfaces](docs/interfaces.md) — topics, action, parameters
 - [Provenance](docs/provenance.md) — pinned upstream, checkpoint, measurements
 - [System architecture](docs/architecture.md)
