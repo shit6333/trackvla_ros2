@@ -59,10 +59,19 @@ mkdir -p /path/to/cache && tar -xf omtrackvla_weights.tar -C /path/to/cache
 find /path/to/cache/huggingface/hub -xtype l      # must print nothing (no dangling symlinks)
 ```
 
-`MODEL_CACHE` in `.env` then points at `/path/to/cache`. The tarball made on
-the workstation on 2026-09-10 (`omtrackvla_weights_20260910.tar`, 6.0 GB,
-sha256 `2f3ed920...ef75ed1`) passed the Phase 0 gate on its own, with the
-original `cache/` unmounted, and gave the same waypoints as the original.
+`MODEL_CACHE` in `.env` then points at `/path/to/cache`.
+
+The tarball made on the workstation on 2026-09-10 is on Google Drive:
+
+    https://drive.google.com/drive/folders/1G4hcSg2WfoWTLoY94B0Xxs4UgsgtA9JD
+
+    omtrackvla_weights_20260910.tar          6.0 GB
+    omtrackvla_weights_20260910.tar.sha256   2f3ed92009ee6972986cfc7f5881e1961ded4d457604711baa88021feef75ed1
+
+It passed the Phase 0 gate on its own, with the original `cache/` unmounted,
+and gave the same waypoints as the original. Download both files through the
+browser (or `rclone copy gdrive:<folder>/ .` with a configured remote) and
+continue with the `sha256sum -c` line above.
 
 ## Hardware the image runs on
 
