@@ -15,13 +15,54 @@ simulator assets and these documents. Four things it needs are outside git:
 | Missing after `git clone` | How to get it |
 | --- | --- |
 | `third_party/OmTrackVLA` (submodule, pinned) | `git submodule update --init --recursive` |
-| Model weights: `OmTrackVLA-0.6B/` (2.4 GB) and the Hugging Face cache with DINOv3 and SigLIP (4.8 GB) | copy the whole `cache/` directory from a machine that has it. DINOv3 is a gated download, so do not rely on the hub fetching it on a fresh machine |
+| Model weights: `OmTrackVLA-0.6B/` and the Hugging Face cache with Qwen3-0.6B, DINOv3 and SigLIP (6.0 GB together) | unpack a weights tarball (below) or copy the whole `cache/` directory from a machine that has it. DINOv3 is a gated download, so do not rely on the hub fetching it on a fresh machine |
 | `.env` | `cp .env.example .env`, then set `MODEL_CACHE`, `USER_ID`/`GROUP_ID` (from `id -u` / `id -g`) and `ROS_DOMAIN_ID` |
 | The inference image (33 GB) and the colcon `install/` tree | `docker compose build vla_tracking`, then `./scripts/build_workspace.sh` inside it |
 
 The `gazebo` services in `compose.yaml` are not needed on a robot; build only
 `vla_tracking`. Without internet, move the image with `docker save` /
 `docker load` instead of rebuilding.
+
+### The weights tarball
+
+The backend reads exactly these files, and nothing else in `cache/`:
+
+    OmTrackVLA-0.6B/          config.json, checkpoint_meta.json, model.safetensors, the three .py files
+    huggingface/hub/          models--Qwen--Qwen3-0.6B, models--google--siglip-so400m-patch14-384,
+                              models--facebook--dinov3-vits16-pretrain-lvd1689m
+
+`pytorch_model.bin` in the checkpoint directory is not read when
+`model.safetensors` is present (verified 2026-09-10: removing it leaves the
+forward pass bit-identical), and the Hugging Face `token` file must never
+travel with the weights. The command that produces a tarball with the right
+contents, run on a machine that has `cache/`:
+
+```bash
+cd /path/to/cache
+tar -cf omtrackvla_weights.tar \
+    --exclude='OmTrackVLA-0.6B/pytorch_model.bin' --exclude='OmTrackVLA-0.6B/*.gif' \
+    --exclude='OmTrackVLA-0.6B/.cache' --exclude='huggingface/token' \
+    --exclude='huggingface/stored_tokens' --exclude='huggingface/xet' \
+    --exclude='huggingface/hub/.locks' --exclude='huggingface/hub/models--Qwen--Qwen3-4B' \
+    --exclude='huggingface/hub/models--omlab--OmTrackVLA-0.6B' \
+    OmTrackVLA-0.6B huggingface
+sha256sum omtrackvla_weights.tar > omtrackvla_weights.tar.sha256
+```
+
+Keep it as a tar, not as a folder: the Hugging Face cache stores each file as
+a symlink into `blobs/`, and cloud-drive folder uploads and Windows
+filesystems replace symlinks with copies or drop them. On the target machine:
+
+```bash
+sha256sum -c omtrackvla_weights.tar.sha256
+mkdir -p /path/to/cache && tar -xf omtrackvla_weights.tar -C /path/to/cache
+find /path/to/cache/huggingface/hub -xtype l      # must print nothing (no dangling symlinks)
+```
+
+`MODEL_CACHE` in `.env` then points at `/path/to/cache`. The tarball made on
+the workstation on 2026-09-10 (`omtrackvla_weights_20260910.tar`, 6.0 GB,
+sha256 `2f3ed920...ef75ed1`) passed the Phase 0 gate on its own, with the
+original `cache/` unmounted, and gave the same waypoints as the original.
 
 ## Hardware the image runs on
 
@@ -89,7 +130,7 @@ On the machine that will run the container:
 ```bash
 git clone <this repository> && cd trackvla_ros2
 git submodule update --init --recursive
-rsync -a <source>:/path/to/omtrackvla_storage/cache/ /path/to/cache/   # weights
+tar -xf omtrackvla_weights.tar -C /path/to/cache      # weights, see above; or rsync the cache/ dir
 cp .env.example .env && $EDITOR .env
 docker compose build vla_tracking
 docker compose run --rm vla_tracking ./scripts/check_gpu.sh
